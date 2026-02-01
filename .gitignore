@@ -1,0 +1,45 @@
+### Environment / secrets
+.env
+.env.*
+!.env.example
+
+### Python
+server/.venv/
+server/__pycache__/
+server/**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+
+### Node / Next.js
+node_modules/
+web/.next/
+web/out/
+web/node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Data / local storage
+data/
+server/data/
+
+### OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

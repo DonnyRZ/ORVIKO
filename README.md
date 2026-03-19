@@ -3,7 +3,7 @@
 Workspace to generate 9:16 TikTok slide images with a three‑panel UI and a Python backend.
 
 ## What this app does
-- Create slide drafts (text + optional design notes).
+- Create slide drafts (text + optional user notes).
 - Upload embed images (logos/icons) per slide.
 - Generate image variations per slide.
 - Preview and download selected results.
@@ -75,7 +75,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ## Usage flow (short)
 1) Create or open a slide.
 2) Add slide text (required).
-3) Optional: add design instructions.
+3) Optional: add user notes (style or context).
 4) Upload embed images (logos/icons), then add label + context.
 5) Generate images.
 6) Choose result → preview → download.

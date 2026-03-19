@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 def _build_user_prompt(
   slide_text: str,
-  design: str | None,
+  notes: str | None,
   embed_assets: Sequence[dict[str, str]],
 ) -> str:
   embed_lines = []
@@ -21,27 +21,28 @@ def _build_user_prompt(
       embed_lines.append(f"- {label}: {context}")
     else:
       embed_lines.append(f"- {label}: use for the matching brand/term in the slide text.")
-  design_line = design.strip() if design else ""
-  design_hint = (
-    f"Design input (must be respected): {design_line}"
-    if design_line
-    else "Design input: not provided. Choose a layout based on the text context."
+  notes_line = notes.strip() if notes else ""
+  notes_hint = (
+    f"User notes (guidance only, do not include as visible text): {notes_line}"
+    if notes_line
+    else "User notes: none."
   )
   embed_hint = (
     "Embed images provided:\n"
     + "\n".join(embed_lines)
     + "\nUse each embed for its matching label/brand in the slide text and integrate it contextually."
     if embed_assets
-    else "Embed images: none. Add clean, simple supportive visuals or infographics that match the design."
+    else "Embed images: none. Add clean, simple supportive visuals or infographics that match the layout."
   )
   return (
     "Create a TikTok slide image in 9:16 (1080x1920).\n"
     "The slide text is the source of truth and must be used exactly and fully (no extra text).\n"
     f"Slide text:\n{slide_text}\n\n"
-    f"{design_hint}\n"
+    f"{notes_hint}\n"
     f"{embed_hint}\n"
     "Rules: adjust text size/placement to fit the context, keep the background minimal noise, "
-    "and keep important content centered within a safe vertical area."
+    "keep important content centered within a safe vertical area, and do not render user notes "
+    "as visible text."
   )
 
 
@@ -61,10 +62,10 @@ class GenAIClient:
   def refine_prompt(
     self,
     slide_text: str,
-    design: str | None,
+    notes: str | None,
     embed_assets: Sequence[dict[str, str]],
   ) -> str:
-    base_prompt = _build_user_prompt(slide_text, design, embed_assets)
+    base_prompt = _build_user_prompt(slide_text, notes, embed_assets)
     response = self.prompt_client.models.generate_content(
       model=self.prompt_model,
       contents=[

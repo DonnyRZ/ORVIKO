@@ -17,7 +17,7 @@ It follows how a user would actually use the app from start to finish.
 ## 2) Create Slide 1 (input phase)
 
 1. User edits "Slide text" (required).
-2. User optionally adds "Slide design (optional)".
+2. User optionally adds "User notes (optional)".
 3. User optionally uploads embed images (logos/icons).
 4. User chooses "Image quantity" (1–5).
 5. User clicks "Generate images".
@@ -29,7 +29,7 @@ It follows how a user would actually use the app from start to finish.
 ## 3) Generate outputs (processing phase)
 
 1. App packages Slide 1 payload:
-   - Text, design notes, embed images, quantity.
+   - Text, user notes, embed images, quantity.
 2. App sends request to the generator.
 3. App receives N image options.
 4. Results are stored under Slide 1.

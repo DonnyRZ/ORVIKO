@@ -189,7 +189,7 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
     try:
       refined_prompt = genai_client.refine_prompt(
         slide_text=slide["text"],
-        design=slide.get("design"),
+        notes=slide.get("design"),
         embed_assets=embed_assets,
       )
     except Exception as exc:

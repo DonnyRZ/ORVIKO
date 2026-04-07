@@ -35,14 +35,23 @@ def _build_user_prompt(
     else "Embed images: none. Add clean, simple supportive visuals or infographics that match the layout."
   )
   return (
-    "Create a TikTok slide image in 9:16 (1080x1920).\n"
-    "The slide text is the source of truth and must be used exactly and fully (no extra text).\n"
+    "Create a production brief for a 9:16 slide image.\n"
+    "The slide text is the source of truth and must be used exactly and fully as the only visible text.\n"
+    "The design should feel extraordinary, highly creative, polished, and non-generic by default.\n"
     f"Slide text:\n{slide_text}\n\n"
     f"{notes_hint}\n"
     f"{embed_hint}\n"
-    "Rules: adjust text size/placement to fit the context, keep the background minimal noise, "
-    "keep important content centered within a safe vertical area, and do not render user notes "
-    "as visible text."
+    "Return only a concise production brief with sections for Composition, Text Treatment, Visual Style, "
+    "Background, Embed Usage, and Constraints. Do not include chatty commentary."
+  )
+
+
+def _build_image_prompt(slide_text: str, production_brief: str) -> str:
+  return (
+    "Production brief:\n"
+    f"{production_brief.strip()}\n\n"
+    "Visible slide text to render exactly:\n"
+    f"{slide_text.strip()}\n"
   )
 
 
@@ -54,7 +63,8 @@ class GenAIClient:
     self.image_client = genai.Client(api_key=settings.image_ai_key)
     self.prompt_model = settings.genai_model
     self.image_model = settings.image_model
-    self.system_prompt = settings.system_prompt
+    self.refiner_system_prompt = settings.refiner_system_prompt or settings.system_prompt
+    self.image_system_prompt = settings.image_system_prompt or settings.system_prompt
     self.image_aspect_ratio = settings.image_aspect_ratio
     self.image_size = settings.image_size
     self.allow_google_search = settings.allow_google_search
@@ -75,7 +85,7 @@ class GenAIClient:
         )
       ],
       config=types.GenerateContentConfig(
-        systemInstruction=self.system_prompt,
+        systemInstruction=self.refiner_system_prompt,
         response_modalities=["TEXT"],
       ),
     )
@@ -84,7 +94,8 @@ class GenAIClient:
 
   def generate_images(
     self,
-    prompt: str,
+    slide_text: str,
+    production_brief: str,
     embed_images: Sequence[tuple[str, bytes]],
     count: int,
     use_grounding: bool = False,
@@ -106,7 +117,7 @@ class GenAIClient:
         image_config.image_size = self.image_size
 
     config_kwargs = {
-      "systemInstruction": self.system_prompt,
+      "systemInstruction": self.image_system_prompt,
       "response_modalities": response_modalities,
     }
     if image_config is not None:
@@ -115,13 +126,14 @@ class GenAIClient:
       config_kwargs["tools"] = [{"google_search": {}}]
 
     results = []
+    image_prompt = _build_image_prompt(slide_text=slide_text, production_brief=production_brief)
     for _ in range(count):
       response = self.image_client.models.generate_content(
         model=self.image_model,
         contents=[
           types.Content(
             role="user",
-            parts=[types.Part.from_text(text=prompt), *embed_parts],
+            parts=[types.Part.from_text(text=image_prompt), *embed_parts],
           )
         ],
         config=types.GenerateContentConfig(**config_kwargs),

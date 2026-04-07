@@ -199,7 +199,8 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
     for index in range(quantity):
       try:
         images = genai_client.generate_images(
-          prompt=refined_prompt,
+          slide_text=slide["text"],
+          production_brief=refined_prompt,
           embed_images=embed_payloads,
           count=1,
           use_grounding=payload.grounding,

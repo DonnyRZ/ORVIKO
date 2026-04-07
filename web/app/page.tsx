@@ -777,18 +777,19 @@ export default function Page() {
                     </div>
 
                     <div className="field">
-                      <label className="field__label" htmlFor={`slide-${index}-style`}>
-                        Slide design (optional)
+                      <label className="field__label" htmlFor={`slide-${index}-notes`}>
+                        User notes (optional)
                       </label>
                       <textarea
-                        id={`slide-${index}-style`}
+                        id={`slide-${index}-notes`}
                         className="field__input field__input--area"
                         rows={4}
                         value={slide.design}
                         onChange={(event) => updateSlideState(slide.id, { design: event.target.value })}
                         onBlur={() => persistSlide(slide.id, { design: slide.design })}
-                        placeholder="Optional: bold headline, split layout, clean icons, dark on light."
+                        placeholder="Notes: preferred colors, anime vibe, or extra context (not shown as slide text)."
                       />
+                      <p className="field__hint">Notes are guidance only and will not appear as slide text.</p>
                     </div>
 
                     <div className="field-row">

@@ -16,24 +16,39 @@ class Settings(BaseSettings):
   genai_api_key: str = Field(..., env="GENAI_API_KEY")
   genai_model: str = Field("gemini-3-flash-preview", env="GENAI_MODEL")
   image_ai_key: str = Field(..., env="IMAGE_AI_KEY")
-  image_model: str = Field("gemini-3-pro-image-preview", env="IMAGE_GEN")
+  image_model: str = Field("gemini-3-pro-image-preview", validation_alias="IMAGE_GEN")
   image_aspect_ratio: str = Field("9:16", env="IMAGE_ASPECT_RATIO")
   image_size: str = Field("2K", env="IMAGE_SIZE")
   allow_google_search: bool = Field(False, env="ALLOW_GOOGLE_SEARCH")
-  system_prompt: str = Field(
-    "You are a visual slide designer. Create a 9:16 slide image (1080x1920). "
-    "The slide text is the source of truth and must be used exactly and completely. "
-    "If a slide design is provided, follow it as strict constraints; if not provided, "
-    "choose a layout based on the text context. Keep the layout clean, readable, and suitable "
-    "for TikTok slides with minimal background noise. Keep all important text and visuals "
-    "within the vertical safe area: leave at least 8-10% top and bottom margin to avoid "
-    "TikTok UI overlays. Center the composition vertically and avoid placing text near the "
-    "extreme top/bottom. If embed images are provided, integrate all of them contextually so "
-    "they fit the text and design. If no embed images are provided, include simple supportive "
-    "visuals or infographics consistent with the design. Avoid adding extra text beyond the "
-    "provided slide text.",
-    env="SYSTEM_PROMPT",
+  refiner_system_prompt: str = Field(
+    "You are a visual slide design strategist. Turn the user's slide text, notes, and embed hints "
+    "into a concise production brief for an image generation model. "
+    "The design direction must feel extraordinary, highly creative, polished, and visually distinctive by default, "
+    "not bland, generic, or template-like. "
+    "The slide text is the only text allowed to appear visibly in the final image and must be used "
+    "exactly and completely. User notes are guidance only and must never appear as visible text. "
+    "Plan a clean 9:16 vertical composition with strong readability, bold hierarchy, intentional spacing, "
+    "and a strong art direction that matches the meaning and tone of the slide text. Keep background noise controlled, "
+    "but avoid flat or boring compositions. "
+    "Favor an editorial, high-impact, visually memorable result with creative composition, depth, contrast, and "
+    "supportive visual storytelling when appropriate. "
+    "Important content must be kept safely away from the extreme top and bottom edges. If embed images are "
+    "provided, explain how each should be integrated contextually. If no embeds are provided, suggest "
+    "simple supportive visuals only. Return a compact production brief, not a conversation.",
+    env="REFINER_SYSTEM_PROMPT",
   )
+  image_system_prompt: str = Field(
+    "You are generating a clean vertical slide image. Use the provided production brief, the exact slide "
+    "text, and any supplied reference images. Render only the provided slide text as visible text. "
+    "The final design should feel extraordinary, highly creative, polished, visually striking, and non-generic. "
+    "Favor strong hierarchy, intentional composition, distinctive shapes, controlled depth, and high visual impact "
+    "that matches the meaning and tone of the slide text. Avoid bland, repetitive, stock-like, or template-style layouts. "
+    "Do not render user notes, instruction text, measurement text, percentages, labels, interface elements, "
+    "watermarks, platform-specific layouts, or branding unless they are explicitly part of the provided slide text. "
+    "Keep the composition centered, readable, and comfortably away from the top and bottom edges.",
+    env="IMAGE_SYSTEM_PROMPT",
+  )
+  system_prompt: str = Field("", env="SYSTEM_PROMPT")
   cors_allowed_origins: str = Field(
     "http://localhost:3000,http://127.0.0.1:3000",
     env="CORS_ALLOWED_ORIGINS",

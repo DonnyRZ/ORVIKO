@@ -39,6 +39,22 @@ from app.services.genai_client import genai_client
 app = FastAPI()
 
 
+def _default_slide_payload() -> dict:
+  return {
+    "title": "Slide tanpa judul",
+    "text": "",
+    "design": "",
+    "quantity": 1,
+  }
+
+
+def _get_or_create_primary_slide(conn) -> dict:
+  slides = list_slides(conn)
+  if slides:
+    return slides[0]
+  return create_slide(conn, **_default_slide_payload())
+
+
 @app.on_event("startup")
 def _startup() -> None:
   init_db()
@@ -67,26 +83,27 @@ def health() -> dict:
 @app.get("/slides")
 def get_slides() -> dict:
   with db_connection() as conn:
-    slides = list_slides(conn)
-    for slide in slides:
-      slide["embeds"] = list_embeds(conn, slide["id"])
-      slide["results"] = list_results(conn, slide["id"])
+    primary_slide = _get_or_create_primary_slide(conn)
+    slides = [primary_slide]
+    primary_slide["embeds"] = list_embeds(conn, primary_slide["id"])
+    primary_slide["results"] = list_results(conn, primary_slide["id"])
   return {"slides": slides}
 
 
 @app.post("/slides", status_code=201)
 def create_slide_handler(payload: SlideCreateRequest) -> dict:
   with db_connection() as conn:
-    slide = create_slide(
-      conn,
-      name=payload.name,
-      title=payload.title,
-      subtitle=payload.subtitle,
-      text=payload.text,
-      design=payload.design,
-      quantity=payload.quantity,
-      position=payload.position,
-    )
+    slides = list_slides(conn)
+    if slides:
+      slide = slides[0]
+    else:
+      slide = create_slide(
+        conn,
+        title=payload.title,
+        text=payload.text,
+        design=payload.design,
+        quantity=payload.quantity,
+      )
   return {"slide": slide}
 
 
@@ -95,7 +112,7 @@ def get_slide_handler(slide_id: str) -> dict:
   with db_connection() as conn:
     slide = get_slide(conn, slide_id)
     if not slide:
-      raise HTTPException(status_code=404, detail="Slide not found.")
+      raise HTTPException(status_code=404, detail="Slide tidak ditemukan.")
     slide["embeds"] = list_embeds(conn, slide_id)
     slide["results"] = list_results(conn, slide_id)
   return {"slide": slide}
@@ -107,7 +124,7 @@ def update_slide_handler(slide_id: str, payload: SlideUpdateRequest) -> dict:
   with db_connection() as conn:
     slide = update_slide(conn, slide_id, data)
   if not slide:
-    raise HTTPException(status_code=404, detail="Slide not found.")
+    raise HTTPException(status_code=404, detail="Slide tidak ditemukan.")
   return {"slide": slide}
 
 
@@ -118,10 +135,12 @@ def delete_slide_handler(slide_id: str) -> dict:
     result_paths = list_result_paths(conn, slide_id)
     deleted = delete_slide(conn, slide_id)
   if not deleted:
-    raise HTTPException(status_code=404, detail="Slide not found.")
+    raise HTTPException(status_code=404, detail="Slide tidak ditemukan.")
+  with db_connection() as conn:
+    replacement_slide = _get_or_create_primary_slide(conn)
   for path in embed_paths + result_paths:
     delete_file(path)
-  return {"id": slide_id}
+  return {"id": slide_id, "slide": replacement_slide}
 
 
 @app.post("/slides/{slide_id}/embeds", status_code=201)
@@ -133,10 +152,10 @@ async def upload_embed(
   context: str = Form(""),
 ) -> dict:
   if not file:
-    raise HTTPException(status_code=400, detail="File required.")
+    raise HTTPException(status_code=400, detail="File wajib diisi.")
   file_bytes = await file.read()
   if not file_bytes:
-    raise HTTPException(status_code=400, detail="Empty file.")
+    raise HTTPException(status_code=400, detail="File kosong.")
 
   file_path, size = save_embed_file(file_bytes, file.filename or "embed.png")
   label_value = label or file.filename or "Embed"
@@ -146,7 +165,7 @@ async def upload_embed(
   with db_connection() as conn:
     slide = get_slide(conn, slide_id)
     if not slide:
-      raise HTTPException(status_code=404, detail="Slide not found.")
+      raise HTTPException(status_code=404, detail="Slide tidak ditemukan.")
     embed = create_embed(
       conn,
       slide_id=slide_id,
@@ -166,12 +185,12 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
   with db_connection() as conn:
     slide = get_slide(conn, slide_id)
     if not slide:
-      raise HTTPException(status_code=404, detail="Slide not found.")
+      raise HTTPException(status_code=404, detail="Slide tidak ditemukan.")
     embeds = list_embeds(conn, slide_id)
     selected_result_id = slide.get("selected_result_id")
 
   if not slide.get("text"):
-    raise HTTPException(status_code=400, detail="Slide text is required.")
+    raise HTTPException(status_code=400, detail="Teks slide wajib diisi.")
 
   embed_payloads = []
   embed_assets = []
@@ -204,6 +223,7 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
           embed_images=embed_payloads,
           count=1,
           use_grounding=payload.grounding,
+          notes=slide.get("design"),
         )
         image_bytes = images[0]
         image_path = save_result_image(image_bytes)
@@ -211,8 +231,8 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
           result = create_result(
             conn,
             slide_id=slide_id,
-            title=f"Option {index + 1}",
-            note="Generated by AI",
+            title=f"Opsi {index + 1}",
+            note="Dihasilkan oleh AI",
             tone=tones[index % len(tones)],
             status="complete",
             image_path=image_path,
@@ -245,7 +265,7 @@ def select_result_handler(slide_id: str, result_id: str) -> dict:
   with db_connection() as conn:
     result = get_result(conn, result_id)
     if not result or result["slide_id"] != slide_id:
-      raise HTTPException(status_code=404, detail="Result not found.")
+      raise HTTPException(status_code=404, detail="Result tidak ditemukan.")
     slide = select_result(conn, slide_id, result_id)
   return {"slide": slide}
 
@@ -255,10 +275,10 @@ def get_embed_file(embed_id: str) -> FileResponse:
   with db_connection() as conn:
     embed = get_embed(conn, embed_id)
   if not embed:
-    raise HTTPException(status_code=404, detail="Embed not found.")
+    raise HTTPException(status_code=404, detail="Embed tidak ditemukan.")
   full_path = (DATA_DIR / embed["file_path"]).resolve()
   if not full_path.exists():
-    raise HTTPException(status_code=404, detail="Embed file missing.")
+    raise HTTPException(status_code=404, detail="File embed tidak ditemukan.")
   return FileResponse(full_path, media_type=embed.get("mime_type") or "image/png")
 
 
@@ -267,7 +287,7 @@ def delete_embed_handler(embed_id: str) -> dict:
   with db_connection() as conn:
     embed = delete_embed(conn, embed_id)
   if not embed:
-    raise HTTPException(status_code=404, detail="Embed not found.")
+    raise HTTPException(status_code=404, detail="Embed tidak ditemukan.")
   delete_file(embed["file_path"])
   return {"id": embed_id}
 
@@ -278,7 +298,7 @@ def update_embed_handler(embed_id: str, payload: EmbedUpdateRequest) -> dict:
   with db_connection() as conn:
     embed = update_embed(conn, embed_id, data)
   if not embed:
-    raise HTTPException(status_code=404, detail="Embed not found.")
+    raise HTTPException(status_code=404, detail="Embed tidak ditemukan.")
   return {"embed": embed}
 
 
@@ -287,10 +307,10 @@ def get_result_image(result_id: str) -> FileResponse:
   with db_connection() as conn:
     result = get_result(conn, result_id)
   if not result or not result.get("image_path"):
-    raise HTTPException(status_code=404, detail="Image not found.")
+    raise HTTPException(status_code=404, detail="Gambar tidak ditemukan.")
   full_path = (DATA_DIR / result["image_path"]).resolve()
   if not full_path.exists():
-    raise HTTPException(status_code=404, detail="Image file missing.")
+    raise HTTPException(status_code=404, detail="File gambar tidak ditemukan.")
   return FileResponse(full_path, media_type="image/png")
 
 
@@ -303,6 +323,6 @@ def delete_result_handler(result_id: str) -> dict:
       if slide and slide.get("selected_result_id") == result["id"]:
         update_slide(conn, result["slide_id"], {"selected_result_id": None})
   if not result:
-    raise HTTPException(status_code=404, detail="Result not found.")
+    raise HTTPException(status_code=404, detail="Result tidak ditemukan.")
   delete_file(result.get("image_path"))
   return {"id": result_id}

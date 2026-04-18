@@ -26,24 +26,27 @@ def init_db() -> None:
   try:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
-    conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA foreign_keys=OFF;")
     conn.execute(
       """
       CREATE TABLE IF NOT EXISTS slides (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
         title TEXT NOT NULL,
-        subtitle TEXT NOT NULL,
         text TEXT NOT NULL,
         design TEXT NOT NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
-        position INTEGER NOT NULL DEFAULT 0,
         selected_result_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
       """
     )
+    if (
+      _column_exists(conn, "slides", "name")
+      or _column_exists(conn, "slides", "position")
+      or _column_exists(conn, "slides", "subtitle")
+    ):
+      _migrate_slides_table(conn)
     conn.execute(
       """
       CREATE TABLE IF NOT EXISTS slide_results (
@@ -78,17 +81,44 @@ def init_db() -> None:
     )
     if not _column_exists(conn, "embed_assets", "context"):
       conn.execute("ALTER TABLE embed_assets ADD COLUMN context TEXT NOT NULL DEFAULT ''")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_slides_position ON slides(position)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_results_slide_id ON slide_results(slide_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_embeds_slide_id ON embed_assets(slide_id)")
     conn.commit()
   finally:
+    conn.execute("PRAGMA foreign_keys=ON;")
     conn.close()
 
 
 def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
   rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
   return any(row[1] == column for row in rows)
+
+
+def _migrate_slides_table(conn: sqlite3.Connection) -> None:
+  conn.execute(
+    """
+    CREATE TABLE slides_v2 (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      text TEXT NOT NULL,
+      design TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      selected_result_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+    """
+  )
+  conn.execute(
+    """
+    INSERT INTO slides_v2 (id, title, text, design, quantity, selected_result_id, created_at, updated_at)
+    SELECT id, title, text, design, quantity, selected_result_id, created_at, updated_at
+    FROM slides
+    ORDER BY created_at ASC
+    """
+  )
+  conn.execute("DROP TABLE slides")
+  conn.execute("ALTER TABLE slides_v2 RENAME TO slides")
 
 
 @contextmanager
@@ -134,28 +164,25 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 
 def create_slide(
   conn: sqlite3.Connection,
-  name: str,
   title: str,
-  subtitle: str,
   text: str,
   design: str,
   quantity: int,
-  position: int,
 ) -> dict:
   slide_id = uuid4().hex
   timestamp = _utc_now()
   conn.execute(
     """
-    INSERT INTO slides (id, name, title, subtitle, text, design, quantity, position, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO slides (id, title, text, design, quantity, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """,
-    (slide_id, name, title, subtitle, text, design, quantity, position, timestamp, timestamp),
+    (slide_id, title, text, design, quantity, timestamp, timestamp),
   )
   return get_slide(conn, slide_id)
 
 
 def list_slides(conn: sqlite3.Connection) -> list[dict]:
-  rows = conn.execute("SELECT * FROM slides ORDER BY position ASC, created_at ASC").fetchall()
+  rows = conn.execute("SELECT * FROM slides ORDER BY created_at ASC").fetchall()
   return [dict(row) for row in rows]
 
 
@@ -169,13 +196,10 @@ def update_slide(conn: sqlite3.Connection, slide_id: str, data: dict) -> Optiona
     return get_slide(conn, slide_id)
 
   allowed = {
-    "name",
     "title",
-    "subtitle",
     "text",
     "design",
     "quantity",
-    "position",
     "selected_result_id",
   }
   updates = []

@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
@@ -30,13 +31,10 @@ type SlideResult = {
 
 type Slide = {
   id: string
-  name: string
   title: string
-  subtitle: string
   text: string
   design: string
   quantity: number
-  position: number
   selected_result_id?: string | null
   embeds: EmbedAsset[]
   results: SlideResult[]
@@ -44,13 +42,10 @@ type Slide = {
 
 const emptySlide: Slide = {
   id: '',
-  name: '',
-  title: '',
-  subtitle: '',
+  title: 'Slide tanpa judul',
   text: '',
   design: '',
   quantity: 1,
-  position: 0,
   selected_result_id: null,
   embeds: [],
   results: [],
@@ -58,32 +53,14 @@ const emptySlide: Slide = {
 
 const normalizeSlide = (slide: Partial<Slide>): Slide => ({
   id: slide.id ?? '',
-  name: slide.name ?? 'Slide',
-  title: slide.title ?? 'Untitled slide',
-  subtitle: slide.subtitle ?? '',
+  title: slide.title ?? 'Slide tanpa judul',
   text: slide.text ?? '',
   design: slide.design ?? '',
   quantity: typeof slide.quantity === 'number' ? slide.quantity : Number(slide.quantity) || 1,
-  position: slide.position ?? 0,
   selected_result_id: slide.selected_result_id ?? null,
   embeds: slide.embeds ?? [],
   results: slide.results ?? [],
 })
-
-const parseBullets = (text: string) =>
-  text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('-') || line.startsWith('*'))
-    .map((line) => line.replace(/^[-*]\s*/, ''))
-
-const parseBodyLine = (text: string) => {
-  const line = text
-    .split('\n')
-    .map((value) => value.trim())
-    .find((value) => value && !value.startsWith('-') && !value.startsWith('*'))
-  return line || 'Slide text will appear here.'
-}
 
 const parseSseEvent = (chunk: string) => {
   const lines = chunk.split('\n')
@@ -107,24 +84,20 @@ export default function Page() {
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 })
   const [leftWidth, setLeftWidth] = useState(320)
   const isResizingRef = useRef(false)
-  const [activeSlide, setActiveSlide] = useState(0)
-  const [previewSlide, setPreviewSlide] = useState(0)
-  const [slides, setSlides] = useState<Slide[]>([])
+  const [currentSlide, setCurrentSlide] = useState<Slide>(emptySlide)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [editingEmbedId, setEditingEmbedId] = useState<string | null>(null)
-  const activeSlideData = slides[activeSlide] ?? emptySlide
-  const previewSlideData = slides[previewSlide] ?? emptySlide
-  const previewResults = previewSlideData.results ?? []
+
+  const currentResults = currentSlide.results ?? []
   const selectedResult =
-    previewResults.find((card) => card.id === previewSlideData.selected_result_id) ?? previewResults[0] ?? null
+    currentResults.find((card) => card.id === currentSlide.selected_result_id) ?? currentResults[0] ?? null
   const previewImageUrl =
     selectedResult?.image_path ? `${API_BASE_URL}/results/${selectedResult.id}/image` : null
-
-  const resolveSlideResult = (slide: Slide) =>
-    slide.results?.find((card) => card.id === slide.selected_result_id) ?? slide.results?.[0] ?? null
+  const slideTitle = currentSlide.title.trim() || 'Slide tanpa judul'
+  const slideFileLabel = currentSlide.title.trim() || 'slide'
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -140,10 +113,27 @@ export default function Page() {
   const downloadResultImage = async (resultId: string, filename: string) => {
     const response = await fetch(`${API_BASE_URL}/results/${resultId}/image`)
     if (!response.ok) {
-      throw new Error('Failed to download image.')
+      throw new Error('Gagal download gambar.')
     }
     const blob = await response.blob()
     downloadBlob(blob, filename)
+  }
+
+  const loadCurrentSlide = async () => {
+    const response = await fetch(`${API_BASE_URL}/slides`)
+    if (!response.ok) {
+      throw new Error(`Gagal memuat slide (${response.status})`)
+    }
+    const data = (await response.json()) as { slides?: Slide[] }
+    const nextSlide = Array.isArray(data.slides) ? data.slides[0] : null
+    if (!nextSlide) {
+      throw new Error('Tidak ada slide tersedia.')
+    }
+    const normalized = normalizeSlide(nextSlide)
+    setCurrentSlide(normalized)
+    setGenerationError(null)
+    setLoadError(null)
+    return normalized
   }
 
   useEffect(() => {
@@ -217,45 +207,13 @@ export default function Page() {
   useEffect(() => {
     let isMounted = true
 
-    const loadSlides = async () => {
+    const bootstrap = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/slides`)
-        if (!response.ok) {
-          throw new Error(`Failed to load slides (${response.status})`)
-        }
-        const data = (await response.json()) as { slides?: Slide[] }
-        let nextSlides = Array.isArray(data.slides) ? data.slides : []
-        if (!nextSlides.length) {
-          const createResponse = await fetch(`${API_BASE_URL}/slides`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: 'Slide 1',
-              title: 'New slide 1',
-              subtitle: 'Waiting for content',
-              text: '',
-              design: '',
-              quantity: 1,
-              position: 0,
-            }),
-          })
-          if (!createResponse.ok) {
-            throw new Error('Failed to create the first slide.')
-          }
-          const payload = (await createResponse.json()) as { slide: Slide }
-          nextSlides = [payload.slide]
-        }
-
-        if (!isMounted) return
-        const normalized = nextSlides.map((slide) => normalizeSlide(slide))
-        setSlides(normalized)
-        setActiveSlide((value) => Math.min(value, Math.max(0, normalized.length - 1)))
-        setPreviewSlide((value) => Math.min(value, Math.max(0, normalized.length - 1)))
-        setLoadError(null)
+        await loadCurrentSlide()
       } catch (error) {
         if (!isMounted) return
-        setLoadError(error instanceof Error ? error.message : 'Failed to load slides.')
+        setLoadError(error instanceof Error ? error.message : 'Gagal memuat slide.')
       } finally {
         if (isMounted) {
           setIsLoading(false)
@@ -263,7 +221,7 @@ export default function Page() {
       }
     }
 
-    void loadSlides()
+    void bootstrap()
 
     return () => {
       isMounted = false
@@ -275,141 +233,72 @@ export default function Page() {
       ? { width: previewSize.width, height: previewSize.height }
       : undefined
 
-  const previewData = {
-    kicker: previewSlideData.name || 'Slide',
-    title: previewSlideData.title || 'Slide preview',
-    body: parseBodyLine(previewSlideData.text || ''),
-    bullets: parseBullets(previewSlideData.text || ''),
-    logos: previewSlideData.embeds.map((embed) => embed.label),
+  const updateSlideState = (changes: Partial<Slide>) => {
+    setCurrentSlide((prev) => ({ ...prev, ...changes }))
   }
 
-  const updateSlideState = (slideId: string, changes: Partial<Slide>) => {
-    setSlides((prev) =>
-      prev.map((slide) => (slide.id === slideId ? { ...slide, ...changes } : slide)),
-    )
+  const updateEmbedState = (embedId: string, changes: Partial<EmbedAsset>) => {
+    setCurrentSlide((prev) => ({
+      ...prev,
+      embeds: prev.embeds.map((embed) => (embed.id === embedId ? { ...embed, ...changes } : embed)),
+    }))
   }
 
-  const updateEmbedState = (slideId: string, embedId: string, changes: Partial<EmbedAsset>) => {
-    setSlides((prev) =>
-      prev.map((slide) => {
-        if (slide.id !== slideId) return slide
-        return {
-          ...slide,
-          embeds: slide.embeds.map((embed) => (embed.id === embedId ? { ...embed, ...changes } : embed)),
-        }
-      }),
-    )
-  }
-
-  const persistSlide = async (slideId: string, payload: Partial<Slide>) => {
+  const persistSlide = async (payload: Partial<Slide>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${slideId}`, {
+      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        throw new Error('Failed to save slide changes.')
+        throw new Error('Gagal menyimpan perubahan slide.')
       }
+      const data = (await response.json()) as { slide: Slide }
+      setCurrentSlide((prev) => ({ ...prev, ...normalizeSlide(data.slide), embeds: prev.embeds, results: prev.results }))
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to save slide.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal menyimpan slide.')
     }
   }
 
-  const refreshSlide = async (slideId: string) => {
-    const response = await fetch(`${API_BASE_URL}/slides/${slideId}`)
+  const refreshSlide = async () => {
+    const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`)
     if (!response.ok) {
-      throw new Error('Failed to refresh slide.')
+      throw new Error('Gagal memperbarui slide.')
     }
     const payload = (await response.json()) as { slide: Slide }
-    const normalized = normalizeSlide(payload.slide)
-    setSlides((prev) => prev.map((slide) => (slide.id === slideId ? normalized : slide)))
+    setCurrentSlide(normalizeSlide(payload.slide))
   }
 
-  const handleAddSlide = async () => {
-    const nextIndex = slides.length + 1
-    try {
-      const response = await fetch(`${API_BASE_URL}/slides`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `Slide ${nextIndex}`,
-          title: `New slide ${nextIndex}`,
-          subtitle: 'Waiting for content',
-          text: '',
-          design: '',
-          quantity: 1,
-          position: slides.length,
-        }),
-      })
-      if (!response.ok) {
-        throw new Error('Failed to create slide.')
-      }
-      const payload = (await response.json()) as { slide: Slide }
-      const created = normalizeSlide(payload.slide)
-      setSlides((prev) => [...prev, created])
-      setActiveSlide(nextIndex - 1)
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to create slide.')
-    }
-  }
-
-  const handleDeleteSlide = async (slideId: string, index: number) => {
-    const confirmed = window.confirm('Delete this slide? This cannot be undone.')
+  const handleDeleteSlide = async () => {
+    const confirmed = window.confirm('Reset slide ini? Slide kosong baru akan dibuat langsung.')
     if (!confirmed) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${slideId}`, {
+      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`, {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error('Failed to delete slide.')
+        throw new Error('Gagal Reset slide.')
       }
-
-      const nextSlides = slides.filter((slide) => slide.id !== slideId)
-      if (!nextSlides.length) {
-        const createResponse = await fetch(`${API_BASE_URL}/slides`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'Slide 1',
-            title: 'New slide 1',
-            subtitle: 'Waiting for content',
-            text: '',
-            design: '',
-            quantity: 1,
-            position: 0,
-          }),
-        })
-        if (!createResponse.ok) {
-          throw new Error('Failed to create a new slide.')
-        }
-        const payload = (await createResponse.json()) as { slide: Slide }
-        const created = normalizeSlide(payload.slide)
-        setSlides([created])
-        setActiveSlide(0)
-        setPreviewSlide(0)
-        return
+      const payload = (await response.json()) as { slide?: Slide }
+      if (payload.slide) {
+        setCurrentSlide(normalizeSlide(payload.slide))
+      } else {
+        await loadCurrentSlide()
       }
-
-      const nextActive = index < activeSlide ? activeSlide - 1 : index === activeSlide ? activeSlide - 1 : activeSlide
-      const nextPreview =
-        index < previewSlide ? previewSlide - 1 : index === previewSlide ? previewSlide - 1 : previewSlide
-      setSlides(nextSlides)
-      setActiveSlide(Math.max(0, Math.min(nextActive, nextSlides.length - 1)))
-      setPreviewSlide(Math.max(0, Math.min(nextPreview, nextSlides.length - 1)))
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to delete slide.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal Reset slide.')
     }
   }
 
-  const handleEmbedUpload = async (slideId: string, files: FileList | File[]) => {
+  const handleEmbedUpload = async (files: FileList | File[]) => {
     const fileArray = Array.from(files)
     if (!fileArray.length) return
 
     const invalid = fileArray.find((file) => !file.type.startsWith('image/'))
     if (invalid) {
-      setLoadError('Only image files are supported.')
+      setLoadError('Hanya file gambar yang didukung.')
       return
     }
 
@@ -421,39 +310,35 @@ export default function Page() {
         formData.append('file', file)
         formData.append('label', file.name)
         formData.append('name', file.name)
-        const response = await fetch(`${API_BASE_URL}/slides/${slideId}/embeds`, {
+        const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/embeds`, {
           method: 'POST',
           body: formData,
         })
         if (!response.ok) {
-          throw new Error('Failed to upload embed image.')
+          throw new Error('Gagal upload gambar embed.')
         }
       }
-      await refreshSlide(slideId)
+      await refreshSlide()
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to upload embed image.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal upload gambar embed.')
     }
   }
 
-  const handleEmbedDelete = async (slideId: string, embedId: string) => {
+  const handleEmbedDelete = async (embedId: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/embeds/${embedId}`, {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error('Failed to delete embed image.')
+        throw new Error('Gagal menghapus gambar embed.')
       }
-      await refreshSlide(slideId)
+      await refreshSlide()
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to delete embed image.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal menghapus gambar embed.')
     }
   }
 
-  const handleEmbedUpdate = async (
-    slideId: string,
-    embedId: string,
-    payload: { label?: string; context?: string },
-  ) => {
+  const handleEmbedUpdate = async (embedId: string, payload: { label?: string; context?: string }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/embeds/${embedId}`, {
         method: 'PATCH',
@@ -461,27 +346,27 @@ export default function Page() {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
-        throw new Error('Failed to update embed image.')
+        throw new Error('Gagal memperbarui gambar embed.')
       }
       const data = (await response.json()) as { embed: EmbedAsset }
-      updateEmbedState(slideId, embedId, data.embed)
+      updateEmbedState(embedId, data.embed)
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to update embed image.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal memperbarui gambar embed.')
     }
   }
 
-  const handleGenerate = async (slideId: string, quantity: number) => {
-    setGeneratingSlideId(slideId)
+  const handleGenerate = async () => {
+    setIsGenerating(true)
     setGenerationError(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${slideId}/generate`, {
+      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity }),
+        body: JSON.stringify({ quantity: currentSlide.quantity }),
       })
       if (!response.ok || !response.body) {
         const text = await response.text()
-        throw new Error(text || 'Failed to generate images.')
+        throw new Error(text || 'Gagal generate gambar.')
       }
 
       const reader = response.body.getReader()
@@ -501,99 +386,78 @@ export default function Page() {
           const parsed = parseSseEvent(rawEvent)
           if (parsed.event === 'error') {
             const payload = JSON.parse(parsed.data) as { message?: string }
-            throw new Error(payload.message || 'Generation failed.')
+            throw new Error(payload.message || 'Generate gagal.')
           }
         }
       }
 
-      await refreshSlide(slideId)
+      await refreshSlide()
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Failed to generate images.')
+      setGenerationError(error instanceof Error ? error.message : 'Gagal generate gambar.')
     } finally {
-      setGeneratingSlideId(null)
+      setIsGenerating(false)
     }
   }
 
-  const handleSelectResult = async (slideId: string, resultId: string) => {
+  const handleSelectResult = async (resultId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${slideId}/results/${resultId}/select`, {
+      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/results/${resultId}/select`, {
         method: 'POST',
       })
       if (!response.ok) {
-        throw new Error('Failed to select result.')
+        throw new Error('Gagal memilih result.')
       }
-      updateSlideState(slideId, { selected_result_id: resultId })
+      updateSlideState({ selected_result_id: resultId })
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to select result.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal memilih result.')
     }
   }
 
-  const handleDownloadResult = async (slideName: string, result: SlideResult | null) => {
+  const handleDownloadResult = async (result: SlideResult | null) => {
     if (!result || !result.image_path) {
-      setLoadError('No image available to download.')
+      setLoadError('Tidak ada gambar untuk di-download.')
       return
     }
     try {
-      const name = slideName || 'slide'
       const title = result.title || 'result'
-      await downloadResultImage(result.id, `${name}-${title}.png`)
+      await downloadResultImage(result.id, `${slideFileLabel}-${title}.png`)
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to download image.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal download gambar.')
     }
   }
 
   const handleDownloadSelected = async () => {
-    await handleDownloadResult(previewSlideData.name, selectedResult)
+    await handleDownloadResult(selectedResult)
   }
 
-  const handleDownloadSlidePack = async () => {
-    const resultsWithImages = previewResults.filter((result) => result.image_path)
+  const handleDownloadAllResults = async () => {
+    const resultsWithImages = currentResults.filter((result) => result.image_path)
     if (!resultsWithImages.length) {
-      setLoadError('No results available to download.')
+      setLoadError('Tidak ada result untuk di-download.')
       return
     }
     try {
       for (const result of resultsWithImages) {
-        await handleDownloadResult(previewSlideData.name, result)
+        await handleDownloadResult(result)
       }
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to download slide pack.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal download result slide.')
     }
   }
 
-  const handleDownloadAllSlides = async () => {
-    const targets = slides
-      .map((slide) => ({ slide, result: resolveSlideResult(slide) }))
-      .filter(
-        (item): item is { slide: Slide; result: SlideResult } =>
-          Boolean(item.result && item.result.image_path),
-      )
-    if (!targets.length) {
-      setLoadError('No generated slides to download.')
-      return
-    }
-    try {
-      for (const target of targets) {
-        await handleDownloadResult(target.slide.name, target.result)
-      }
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to download all slides.')
-    }
-  }
-
-  const handleDeleteResult = async (slideId: string, resultId: string) => {
-    const confirmed = window.confirm('Delete this generated result?')
+  const handleDeleteResult = async (resultId: string) => {
+    const confirmed = window.confirm('Hapus result yang dihasilkan ini?')
     if (!confirmed) return
     try {
       const response = await fetch(`${API_BASE_URL}/results/${resultId}`, {
         method: 'DELETE',
       })
       if (!response.ok) {
-        throw new Error('Failed to delete result.')
+        throw new Error('Gagal menghapus result.')
       }
-      await refreshSlide(slideId)
+      await refreshSlide()
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to delete result.')
+      setLoadError(error instanceof Error ? error.message : 'Gagal menghapus result.')
     }
   }
 
@@ -601,29 +465,36 @@ export default function Page() {
     <main className="workspace-shell">
       <header className="workspace-header">
         <div className="brand">
-          <div className="brand-mark">OD</div>
+          <div className="brand-mark">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/branding/logo-odin.png" alt="Logo ODIN" className="brand-mark__image" />
+          </div>
           <div className="brand-copy">
             <p className="brand-title display-font">ODIN TikTok Slide</p>
-            <p className="brand-subtitle">Workspace for 9:16 slide images</p>
+            <p className="brand-subtitle">Workspace untuk satu gambar slide 9:16</p>
           </div>
           <span className="tag tag-accent">1080 x 1920</span>
         </div>
         <div className="header-actions">
-          <button className="btn btn-ghost" type="button" onClick={handleDownloadAllSlides}>
-            Download all slides
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleDownloadSelected}>
-            Download selected
-          </button>
+                <button className="btn btn-ghost" type="button" onClick={handleDownloadAllResults} disabled={!currentResults.length}>
+                  Download semua result
+                </button>
+                <button className="btn btn-primary" type="button" onClick={handleDownloadSelected} disabled={!selectedResult}>
+                  Download yang dipilih
+                </button>
         </div>
       </header>
 
-      <div className="workspace-grid" ref={gridRef} style={{ ['--left-width' as const]: `${leftWidth}px` }}>
+      <div
+        className="workspace-grid"
+        ref={gridRef}
+        style={{ ['--left-width' as '--left-width']: `${leftWidth}px` } as CSSProperties}
+      >
         <aside className="workspace-column workspace-column--left workspace-column--scroll">
           <button
             className="column-resizer"
             type="button"
-            aria-label="Resize left panel"
+            aria-label="Ubah lebar panel kiri"
             onPointerDown={(event) => {
               event.preventDefault()
               isResizingRef.current = true
@@ -631,247 +502,204 @@ export default function Page() {
             }}
           />
           {loadError ? <p className="field__hint">{loadError}</p> : null}
-          {isLoading ? <p className="field__hint">Loading slides...</p> : null}
-          {slides.map((slide, index) => {
-            const isActive = activeSlide === index
-            const isGenerating = generatingSlideId === slide.id
+          {isLoading ? <p className="field__hint">Memuat slide...</p> : null}
 
-            return (
-              <section className="column-section" key={slide.id}>
-                <header className="section-header">
-                  <div>
-                    <p className="section-eyebrow">{slide.name}</p>
-                    <h2 className="section-title display-font">{slide.title}</h2>
-                    <p className="section-subtitle">{slide.subtitle}</p>
-                  </div>
-                  <div className="section-actions section-actions--row">
-                    <button
-                      className="btn btn-outline btn-small"
-                      type="button"
-                      onClick={() => setActiveSlide(index)}
-                    >
-                      {isActive ? 'Active' : 'Open'}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-small btn-danger"
-                      type="button"
-                      onClick={() => handleDeleteSlide(slide.id, index)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </header>
+          <section className="column-section">
+            <header className="section-header">
+              <div>
+                <p className="section-eyebrow">Slide aktif</p>
+                <h2 className="section-title display-font">{slideTitle}</h2>
+              </div>
+              <div className="section-actions section-actions--row">
+                <button className="btn btn-ghost btn-small btn-danger" type="button" onClick={handleDeleteSlide} disabled={!currentSlide.id}>
+                  Reset
+                </button>
+              </div>
+            </header>
 
-                {isActive ? (
-                  <>
-                    <div className="field">
-                      <p className="field__label">Embed images</p>
-                      <div className="upload-row">
-                        <input
-                          id={`embed-input-${slide.id}`}
-                          className="sr-only"
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(event) => {
-                            const files = event.target.files
-                            if (files?.length) {
-                              void handleEmbedUpload(slide.id, files)
-                            }
-                            event.target.value = ''
-                          }}
+            <div className="field">
+              <label className="field__label" htmlFor="slide-title">
+                Judul slide
+              </label>
+              <input
+                id="slide-title"
+                className="field__input"
+                value={currentSlide.title}
+                onChange={(event) => updateSlideState({ title: event.target.value })}
+                onBlur={() => persistSlide({ title: currentSlide.title })}
+                placeholder="Slide tanpa judul"
+              />
+            </div>
+
+            <div className="field">
+              <p className="field__label">Gambar embed</p>
+              <div className="upload-row">
+                <input
+                  id={`embed-input-${currentSlide.id || 'single'}`}
+                  className="sr-only"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => {
+                    const files = event.target.files
+                    if (files?.length) {
+                      void handleEmbedUpload(files)
+                    }
+                    event.target.value = ''
+                  }}
+                />
+                <label className="upload-slot" htmlFor={`embed-input-${currentSlide.id || 'single'}`} aria-label="Upload gambar embed">
+                  +
+                </label>
+                {currentSlide.embeds.map((asset) => {
+                  const isEditing = editingEmbedId === asset.id
+                  const contextValue = asset.context ?? ''
+                  return (
+                    <div key={asset.id} className="embed-item" aria-label={asset.name}>
+                      <div className="embed-thumb">
+                        <img
+                          src={`${API_BASE_URL}/embeds/${asset.id}/file`}
+                          alt={asset.name}
+                          className="embed-thumb__image"
                         />
-                        <label className="upload-slot" htmlFor={`embed-input-${slide.id}`} aria-label="Upload embed image">
-                          +
-                        </label>
-                        {slide.embeds.map((asset) => {
-                          const isEditing = editingEmbedId === asset.id
-                          const contextValue = asset.context ?? ''
-                          return (
-                            <div key={asset.id} className="embed-item" aria-label={asset.name}>
-                              <div className="embed-thumb">
-                                <img
-                                  src={`${API_BASE_URL}/embeds/${asset.id}/file`}
-                                  alt={asset.name}
-                                  className="embed-thumb__image"
-                                />
-                                <button
-                                  className="embed-thumb__remove"
-                                  type="button"
-                                  onClick={() => handleEmbedDelete(slide.id, asset.id)}
-                                  aria-label={`Remove ${asset.name}`}
-                                >
-                                  x
-                                </button>
-                                <button
-                                  className="embed-thumb__edit"
-                                  type="button"
-                                  onClick={() => setEditingEmbedId(isEditing ? null : asset.id)}
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                              {isEditing ? (
-                                <div className="embed-edit">
-                                  <label className="field__label" htmlFor={`embed-label-${asset.id}`}>
-                                    Label/Brand
-                                  </label>
-                                  <input
-                                    id={`embed-label-${asset.id}`}
-                                    className="field__input field__input--compact"
-                                    value={asset.label}
-                                    onChange={(event) =>
-                                      updateEmbedState(slide.id, asset.id, { label: event.target.value })
-                                    }
-                                    onBlur={(event) =>
-                                      handleEmbedUpdate(slide.id, asset.id, {
-                                        label: event.target.value,
-                                        context: contextValue,
-                                      })
-                                    }
-                                    placeholder="Gemini"
-                                  />
-                                  <label className="field__label" htmlFor={`embed-context-${asset.id}`}>
-                                    Context
-                                  </label>
-                                  <textarea
-                                    id={`embed-context-${asset.id}`}
-                                    className="field__input field__input--area"
-                                    rows={2}
-                                    value={contextValue}
-                                    onChange={(event) =>
-                                      updateEmbedState(slide.id, asset.id, { context: event.target.value })
-                                    }
-                                    onBlur={(event) =>
-                                      handleEmbedUpdate(slide.id, asset.id, {
-                                        label: asset.label,
-                                        context: event.target.value,
-                                      })
-                                    }
-                                    placeholder="Official logo, use for Gemini mentions."
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <p className="field__hint">
-                        Upload logos or icons so the generator can use the correct visuals.
-                      </p>
-                    </div>
-
-                    <div className="field">
-                      <label className="field__label" htmlFor={`slide-${index}-text`}>
-                        Slide text
-                      </label>
-                      <textarea
-                        id={`slide-${index}-text`}
-                        className="field__input field__input--area"
-                        rows={6}
-                        value={slide.text}
-                        onChange={(event) => updateSlideState(slide.id, { text: event.target.value })}
-                        onBlur={() => persistSlide(slide.id, { text: slide.text })}
-                      />
-                      <p className="field__hint">Text will be used 100 percent inside the slide.</p>
-                    </div>
-
-                    <div className="field">
-                      <label className="field__label" htmlFor={`slide-${index}-notes`}>
-                        User notes (optional)
-                      </label>
-                      <textarea
-                        id={`slide-${index}-notes`}
-                        className="field__input field__input--area"
-                        rows={4}
-                        value={slide.design}
-                        onChange={(event) => updateSlideState(slide.id, { design: event.target.value })}
-                        onBlur={() => persistSlide(slide.id, { design: slide.design })}
-                        placeholder="Notes: preferred colors, anime vibe, or extra context (not shown as slide text)."
-                      />
-                      <p className="field__hint">Notes are guidance only and will not appear as slide text.</p>
-                    </div>
-
-                    <div className="field-row">
-                      <div className="field">
-                        <label className="field__label" htmlFor={`slide-${index}-quantity`}>
-                          Image quantity
-                        </label>
-                        <select
-                          id={`slide-${index}-quantity`}
-                          className="field__input"
-                          value={slide.quantity}
-                          onChange={(event) => {
-                            const nextValue = Number(event.target.value)
-                            updateSlideState(slide.id, { quantity: nextValue })
-                            void persistSlide(slide.id, { quantity: nextValue })
-                          }}
+                        <button
+                          className="embed-thumb__remove"
+                          type="button"
+                          onClick={() => handleEmbedDelete(asset.id)}
+                          aria-label={`Hapus ${asset.name}`}
                         >
-                          <option value={1}>1 image</option>
-                          <option value={2}>2 images</option>
-                          <option value={3}>3 images</option>
-                          <option value={4}>4 images</option>
-                          <option value={5}>5 images</option>
-                        </select>
+                          x
+                        </button>
+                        <button
+                          className="embed-thumb__edit"
+                          type="button"
+                          onClick={() => setEditingEmbedId(isEditing ? null : asset.id)}
+                        >
+                          Ubah
+                        </button>
                       </div>
-                      <button
-                        className="btn btn-primary btn-wide"
-                        type="button"
-                        onClick={() => handleGenerate(slide.id, slide.quantity)}
-                        disabled={isGenerating}
-                      >
-                        {isGenerating ? 'Generating...' : 'Generate images'}
-                      </button>
+                      {isEditing ? (
+                        <div className="embed-edit">
+                          <label className="field__label" htmlFor={`embed-label-${asset.id}`}>
+                            Label/Brand
+                          </label>
+                          <input
+                            id={`embed-label-${asset.id}`}
+                            className="field__input field__input--compact"
+                            value={asset.label}
+                            onChange={(event) => updateEmbedState(asset.id, { label: event.target.value })}
+                            onBlur={(event) =>
+                              handleEmbedUpdate(asset.id, {
+                                label: event.target.value,
+                                context: contextValue,
+                              })
+                            }
+                            placeholder="Gemini"
+                          />
+                          <label className="field__label" htmlFor={`embed-context-${asset.id}`}>
+                            Context
+                          </label>
+                          <textarea
+                            id={`embed-context-${asset.id}`}
+                            className="field__input field__input--area"
+                            rows={2}
+                            value={contextValue}
+                            onChange={(event) => updateEmbedState(asset.id, { context: event.target.value })}
+                            onBlur={(event) =>
+                              handleEmbedUpdate(asset.id, {
+                                label: asset.label,
+                                context: event.target.value,
+                              })
+                            }
+                            placeholder="Logo resmi, pakai untuk mention Gemini."
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    {generationError && isActive ? (
-                      <p className="field__hint">{generationError}</p>
-                    ) : null}
-                  </>
-                ) : null}
-              </section>
-            )
-          })}
+                  )
+                })}
+              </div>
+              <p className="field__hint">Upload logo atau ikon agar generator memakai visual yang tepat.</p>
+            </div>
 
-          <div className="column-section column-section--tight">
-            <button className="add-slide" type="button" onClick={handleAddSlide}>
-              + Add new slide
-            </button>
-          </div>
+            <div className="field">
+              <label className="field__label" htmlFor="slide-text">
+                Teks slide
+              </label>
+              <textarea
+                id="slide-text"
+                className="field__input field__input--area"
+                rows={6}
+                value={currentSlide.text}
+                onChange={(event) => updateSlideState({ text: event.target.value })}
+                onBlur={() => persistSlide({ text: currentSlide.text })}
+              />
+              <p className="field__hint">Teks ini akan dipakai 100 persen di dalam slide.</p>
+            </div>
+
+            <div className="field">
+              <label className="field__label" htmlFor="slide-notes">
+                Catatan pengguna (opsional)
+              </label>
+              <textarea
+                id="slide-notes"
+                className="field__input field__input--area"
+                rows={4}
+                value={currentSlide.design}
+                onChange={(event) => updateSlideState({ design: event.target.value })}
+                onBlur={() => persistSlide({ design: currentSlide.design })}
+                placeholder="Catatan: warna pilihan, vibe anime, atau context tambahan (tidak tampil sebagai teks slide)."
+              />
+              <p className="field__hint">Catatan hanya menjadi arahan dan tidak akan muncul sebagai teks slide.</p>
+            </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label className="field__label" htmlFor="slide-quantity">
+                  Jumlah gambar
+                </label>
+                <select
+                  id="slide-quantity"
+                  className="field__input"
+                  value={currentSlide.quantity}
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value)
+                    updateSlideState({ quantity: nextValue })
+                    void persistSlide({ quantity: nextValue })
+                  }}
+                >
+                  <option value={1}>1 gambar</option>
+                  <option value={2}>2 gambar</option>
+                  <option value={3}>3 gambar</option>
+                  <option value={4}>4 gambar</option>
+                  <option value={5}>5 gambar</option>
+                </select>
+              </div>
+              <button className="btn btn-primary btn-wide" type="button" onClick={handleGenerate} disabled={isGenerating || !currentSlide.id}>
+                {isGenerating ? 'Sedang generate...' : 'Generate gambar'}
+              </button>
+            </div>
+            {generationError ? <p className="field__hint">{generationError}</p> : null}
+          </section>
         </aside>
 
         <section className="workspace-column workspace-column--center">
           <section className="column-section column-section--fill">
             <header className="section-header section-header--compact">
               <div>
-                <p className="section-eyebrow">Slide preview</p>
+                <p className="section-eyebrow">Preview slide</p>
                 <h2 className="section-title display-font">
-                  {previewSlideData.name || 'Slide'} - {selectedResult?.title || 'No result'}
+                  {selectedResult ? `${slideTitle} - ${selectedResult.title}` : 'Preview belum tersedia'}
                 </h2>
-                <p className="section-subtitle">Preview reflects the selected result on the right.</p>
+                <p className="section-subtitle">
+                  {selectedResult
+                    ? 'Preview mengikuti result yang dipilih di kanan.'
+                    : 'Preview akan muncul setelah gambar berhasil dibuat.'}
+                </p>
               </div>
               <div className="section-actions section-actions--row">
-                <div className="preview-nav">
-                  <button
-                    className="btn btn-ghost btn-small"
-                    type="button"
-                    aria-label="Previous slide"
-                    onClick={() => setPreviewSlide((value) => Math.max(0, value - 1))}
-                    disabled={previewSlide === 0}
-                  >
-                    {'<'}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-small"
-                    type="button"
-                    aria-label="Next slide"
-                    onClick={() => setPreviewSlide((value) => Math.min(slides.length - 1, value + 1))}
-                    disabled={previewSlide === slides.length - 1}
-                  >
-                    {'>'}
-                  </button>
-                </div>
-                <button className="btn btn-outline btn-small" type="button" onClick={handleDownloadSelected}>
-                  Download image
+                <button className="btn btn-outline btn-small" type="button" onClick={handleDownloadSelected} disabled={!selectedResult}>
+                  Download gambar
                 </button>
               </div>
             </header>
@@ -880,35 +708,19 @@ export default function Page() {
                 {previewImageUrl ? (
                   <div className="preview-image-wrapper">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={previewImageUrl} alt="Slide preview" className="preview-image" />
+                    <img src={previewImageUrl} alt="Preview slide" className="preview-image" />
                   </div>
                 ) : (
                   <div className="preview-canvas">
                     <div className="preview-top">
-                      <span className="preview-kicker">{previewData.kicker}</span>
-                      <span className="preview-pill">{previewSlideData.name || 'Slide'}</span>
+                      <span className="preview-kicker">Preview slide</span>
+                      <span className="preview-pill">Menunggu result</span>
                     </div>
-                    <h3 className="preview-title display-font">{previewData.title}</h3>
-                    <p className="preview-body">{previewData.body}</p>
-                    {previewData.bullets.length ? (
-                      <ul className="preview-list">
-                        {previewData.bullets.map((bullet) => (
-                          <li key={bullet}>{bullet}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    <div className="preview-logos">
-                      {previewData.logos.map((logo) => (
-                        <span key={logo} className="logo-chip">
-                          {logo}
-                        </span>
-                      ))}
-                    </div>
+                    <h3 className="preview-title display-font">Belum ada gambar</h3>
+                    <p className="preview-body">Area ini hanya menampilkan hasil final setelah proses generate selesai.</p>
                     <div className="preview-footer">
                       <span>1080 x 1920 px</span>
-                      <span>
-                        {selectedResult ? `${selectedResult.title} - ${selectedResult.note}` : 'No result yet'}
-                      </span>
+                      <span>Belum ada result</span>
                     </div>
                   </div>
                 )}
@@ -921,41 +733,18 @@ export default function Page() {
           <section className="column-section">
             <header className="section-header">
               <div>
-                <p className="section-eyebrow">Generated results</p>
-                <h2 className="section-title display-font">{previewSlideData.name || 'Slide'} outputs</h2>
-                <p className="section-subtitle">Pick a result to preview or download.</p>
-              </div>
-              <div className="section-actions">
-                <button className="btn btn-ghost btn-small" type="button" onClick={handleDownloadSlidePack}>
-                  Download slide pack
-                </button>
-                <button className="btn btn-primary btn-small" type="button" onClick={handleDownloadSelected}>
-                  Download selected
-                </button>
+                <p className="section-eyebrow">Result yang dihasilkan</p>
+                <h2 className="section-title display-font">Result {slideTitle}</h2>
+                <p className="section-subtitle">Pilih result untuk preview atau download.</p>
               </div>
             </header>
           </section>
           <section className="column-section">
-            <div className="slide-tabs">
-              {slides.map((slide, index) => (
-                <button
-                  key={slide.id}
-                  className={`tab${previewSlide === index ? ' is-active' : ''}`}
-                  type="button"
-                  aria-disabled="true"
-                >
-                  {slide.name}
-                </button>
-              ))}
-            </div>
-
             <div className="result-grid">
-              {previewResults.length ? (
-                previewResults.map((card) => {
-                  const isSelected = card.id === previewSlideData.selected_result_id
-                  const imageUrl = card.image_path
-                    ? `${API_BASE_URL}/results/${card.id}/image`
-                    : null
+              {currentResults.length ? (
+                currentResults.map((card) => {
+                  const isSelected = card.id === currentSlide.selected_result_id
+                  const imageUrl = card.image_path ? `${API_BASE_URL}/results/${card.id}/image` : null
 
                   return (
                     <article key={card.id} className="result-card" data-selected={isSelected ? 'true' : 'false'}>
@@ -967,41 +756,33 @@ export default function Page() {
                           '9:16'
                         )}
                       </div>
-                      {isSelected ? <span className="selected-badge">Selected</span> : null}
+                      {isSelected ? <span className="selected-badge">Dipilih</span> : null}
                       <div className="result-meta">
                         <div>
                           <p className="result-title">{card.title}</p>
                           <p className="result-caption">{card.note}</p>
                         </div>
                         <div className="result-actions">
-                          <button
-                            className="btn btn-outline btn-small"
-                            type="button"
-                            onClick={() => handleDownloadResult(previewSlideData.name, card)}
-                          >
+                          <button className="btn btn-outline btn-small" type="button" onClick={() => handleDownloadResult(card)}>
                             Download
                           </button>
                           <button
                             className="btn btn-ghost btn-small btn-danger"
                             type="button"
-                            onClick={() => handleDeleteResult(previewSlideData.id, card.id)}
+                            onClick={() => handleDeleteResult(card.id)}
                           >
-                            Delete
+                            Hapus
                           </button>
                         </div>
                       </div>
-                      <button
-                        className="btn btn-ghost btn-small"
-                        type="button"
-                        onClick={() => handleSelectResult(previewSlideData.id, card.id)}
-                      >
-                        Use for preview
+                      <button className="btn btn-ghost btn-small" type="button" onClick={() => handleSelectResult(card.id)}>
+                        Pakai untuk preview
                       </button>
                     </article>
                   )
                 })
               ) : (
-                <p className="field__hint">No generated results yet.</p>
+                <p className="field__hint">Belum ada result yang dihasilkan.</p>
               )}
             </div>
           </section>

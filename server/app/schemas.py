@@ -8,6 +8,7 @@ class SlideCreateRequest(BaseModel):
   text: str = Field("", max_length=5000)
   design: str = Field("", max_length=2000)
   quantity: int = Field(1, ge=1, le=5)
+  aspect_ratio: str = Field("9:16", pattern=r"^(1:1|4:5|9:16|16:9)$")
 
 
 class SlideUpdateRequest(BaseModel):
@@ -15,6 +16,7 @@ class SlideUpdateRequest(BaseModel):
   text: Optional[str] = Field(None, max_length=5000)
   design: Optional[str] = Field(None, max_length=2000)
   quantity: Optional[int] = Field(None, ge=1, le=5)
+  aspect_ratio: Optional[str] = Field(None, pattern=r"^(1:1|4:5|9:16|16:9)$")
   selected_result_id: Optional[str] = None
 
 

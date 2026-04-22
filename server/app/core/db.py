@@ -35,6 +35,7 @@ def init_db() -> None:
         text TEXT NOT NULL,
         design TEXT NOT NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
+        aspect_ratio TEXT NOT NULL DEFAULT '9:16',
         selected_result_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -45,6 +46,7 @@ def init_db() -> None:
       _column_exists(conn, "slides", "name")
       or _column_exists(conn, "slides", "position")
       or _column_exists(conn, "slides", "subtitle")
+      or not _column_exists(conn, "slides", "aspect_ratio")
     ):
       _migrate_slides_table(conn)
     conn.execute(
@@ -95,6 +97,7 @@ def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
 
 
 def _migrate_slides_table(conn: sqlite3.Connection) -> None:
+  has_aspect_ratio = _column_exists(conn, "slides", "aspect_ratio")
   conn.execute(
     """
     CREATE TABLE slides_v2 (
@@ -103,6 +106,7 @@ def _migrate_slides_table(conn: sqlite3.Connection) -> None:
       text TEXT NOT NULL,
       design TEXT NOT NULL,
       quantity INTEGER NOT NULL DEFAULT 1,
+      aspect_ratio TEXT NOT NULL DEFAULT '9:16',
       selected_result_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -110,12 +114,21 @@ def _migrate_slides_table(conn: sqlite3.Connection) -> None:
     """
   )
   conn.execute(
-    """
-    INSERT INTO slides_v2 (id, title, text, design, quantity, selected_result_id, created_at, updated_at)
-    SELECT id, title, text, design, quantity, selected_result_id, created_at, updated_at
-    FROM slides
-    ORDER BY created_at ASC
-    """
+    (
+      """
+      INSERT INTO slides_v2 (id, title, text, design, quantity, aspect_ratio, selected_result_id, created_at, updated_at)
+      SELECT id, title, text, design, quantity, COALESCE(aspect_ratio, '9:16'), selected_result_id, created_at, updated_at
+      FROM slides
+      ORDER BY created_at ASC
+      """
+      if has_aspect_ratio
+      else """
+      INSERT INTO slides_v2 (id, title, text, design, quantity, aspect_ratio, selected_result_id, created_at, updated_at)
+      SELECT id, title, text, design, quantity, '9:16', selected_result_id, created_at, updated_at
+      FROM slides
+      ORDER BY created_at ASC
+      """
+    )
   )
   conn.execute("DROP TABLE slides")
   conn.execute("ALTER TABLE slides_v2 RENAME TO slides")
@@ -168,15 +181,16 @@ def create_slide(
   text: str,
   design: str,
   quantity: int,
+  aspect_ratio: str,
 ) -> dict:
   slide_id = uuid4().hex
   timestamp = _utc_now()
   conn.execute(
     """
-    INSERT INTO slides (id, title, text, design, quantity, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO slides (id, title, text, design, quantity, aspect_ratio, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """,
-    (slide_id, title, text, design, quantity, timestamp, timestamp),
+    (slide_id, title, text, design, quantity, aspect_ratio, timestamp, timestamp),
   )
   return get_slide(conn, slide_id)
 
@@ -200,6 +214,7 @@ def update_slide(conn: sqlite3.Connection, slide_id: str, data: dict) -> Optiona
     "text",
     "design",
     "quantity",
+    "aspect_ratio",
     "selected_result_id",
   }
   updates = []

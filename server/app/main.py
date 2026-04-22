@@ -45,6 +45,7 @@ def _default_slide_payload() -> dict:
     "text": "",
     "design": "",
     "quantity": 1,
+    "aspect_ratio": settings.image_aspect_ratio,
   }
 
 
@@ -103,6 +104,7 @@ def create_slide_handler(payload: SlideCreateRequest) -> dict:
         text=payload.text,
         design=payload.design,
         quantity=payload.quantity,
+        aspect_ratio=payload.aspect_ratio,
       )
   return {"slide": slide}
 
@@ -210,6 +212,7 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
         slide_text=slide["text"],
         notes=slide.get("design"),
         embed_assets=embed_assets,
+        aspect_ratio=slide.get("aspect_ratio") or settings.image_aspect_ratio,
       )
     except Exception as exc:
       yield _sse_event("error", {"message": str(exc)})
@@ -224,6 +227,7 @@ def generate_slide(slide_id: str, payload: GenerateRequest) -> StreamingResponse
           count=1,
           use_grounding=payload.grounding,
           notes=slide.get("design"),
+          aspect_ratio=slide.get("aspect_ratio") or settings.image_aspect_ratio,
         )
         image_bytes = images[0]
         image_path = save_result_image(image_bytes)

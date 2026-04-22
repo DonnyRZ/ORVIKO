@@ -35,10 +35,13 @@ type Slide = {
   text: string
   design: string
   quantity: number
+  aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
   selected_result_id?: string | null
   embeds: EmbedAsset[]
   results: SlideResult[]
 }
+
+const ASPECT_RATIO_OPTIONS = ['1:1', '4:5', '9:16', '16:9'] as const
 
 const emptySlide: Slide = {
   id: '',
@@ -46,10 +49,14 @@ const emptySlide: Slide = {
   text: '',
   design: '',
   quantity: 1,
+  aspect_ratio: '9:16',
   selected_result_id: null,
   embeds: [],
   results: [],
 }
+
+const normalizeAspectRatio = (value: unknown): Slide['aspect_ratio'] =>
+  ASPECT_RATIO_OPTIONS.includes(value as Slide['aspect_ratio']) ? (value as Slide['aspect_ratio']) : '9:16'
 
 const normalizeSlide = (slide: Partial<Slide>): Slide => ({
   id: slide.id ?? '',
@@ -57,6 +64,7 @@ const normalizeSlide = (slide: Partial<Slide>): Slide => ({
   text: slide.text ?? '',
   design: slide.design ?? '',
   quantity: typeof slide.quantity === 'number' ? slide.quantity : Number(slide.quantity) || 1,
+  aspect_ratio: normalizeAspectRatio(slide.aspect_ratio),
   selected_result_id: slide.selected_result_id ?? null,
   embeds: slide.embeds ?? [],
   results: slide.results ?? [],
@@ -98,6 +106,11 @@ export default function Page() {
     selectedResult?.image_path ? `${API_BASE_URL}/results/${selectedResult.id}/image` : null
   const slideTitle = currentSlide.title.trim() || 'Slide tanpa judul'
   const slideFileLabel = currentSlide.title.trim() || 'slide'
+  const activeAspectRatio = currentSlide.aspect_ratio || '9:16'
+  const [aspectWidth, aspectHeight] = activeAspectRatio.split(':').map(Number)
+  const aspectRatioValue = `${aspectWidth} / ${aspectHeight}`
+  const isLandscapeRatio = aspectWidth > aspectHeight
+  const resultThumbStyle = { ['--result-aspect-ratio' as '--result-aspect-ratio']: aspectRatioValue } as CSSProperties
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
@@ -149,7 +162,8 @@ export default function Page() {
 
       if (maxWidth <= 0 || maxHeight <= 0) return
 
-      const ratio = 9 / 16
+      const [widthUnits, heightUnits] = activeAspectRatio.split(':').map(Number)
+      const ratio = widthUnits / heightUnits
       let width = maxWidth
       let height = width / ratio
 
@@ -174,17 +188,18 @@ export default function Page() {
     observer.observe(stage)
 
     return () => observer.disconnect()
-  }, [])
+  }, [activeAspectRatio])
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       if (!isResizingRef.current || !gridRef.current) return
       const gridRect = gridRef.current.getBoundingClientRect()
       const gridWidth = gridRect.width
+      const dividerWidth = 12
       const leftMin = 260
-      const centerMin = 320
+      const centerMin = 480
       const rightMin = 260
-      const maxLeft = Math.max(leftMin, gridWidth - centerMin - rightMin)
+      const maxLeft = Math.max(leftMin, gridWidth - dividerWidth - centerMin - rightMin)
       const nextWidth = Math.min(Math.max(event.clientX - gridRect.left, leftMin), maxLeft)
       setLeftWidth(nextWidth)
     }
@@ -470,10 +485,10 @@ export default function Page() {
             <img src="/branding/logo-odin.png" alt="Logo ODIN" className="brand-mark__image" />
           </div>
           <div className="brand-copy">
-            <p className="brand-title display-font">ODIN TikTok Slide</p>
-            <p className="brand-subtitle">Workspace untuk satu gambar slide 9:16</p>
+            <p className="brand-title display-font">ODIN Slide</p>
+            <p className="brand-subtitle">Workspace untuk satu gambar slide</p>
           </div>
-          <span className="tag tag-accent">1080 x 1920</span>
+          <span className="tag tag-accent">{activeAspectRatio}</span>
         </div>
         <div className="header-actions">
                 <button className="btn btn-ghost" type="button" onClick={handleDownloadAllResults} disabled={!currentResults.length}>
@@ -491,16 +506,6 @@ export default function Page() {
         style={{ ['--left-width' as '--left-width']: `${leftWidth}px` } as CSSProperties}
       >
         <aside className="workspace-column workspace-column--left workspace-column--scroll">
-          <button
-            className="column-resizer"
-            type="button"
-            aria-label="Ubah lebar panel kiri"
-            onPointerDown={(event) => {
-              event.preventDefault()
-              isResizingRef.current = true
-              document.body.classList.add('is-resizing')
-            }}
-          />
           {loadError ? <p className="field__hint">{loadError}</p> : null}
           {isLoading ? <p className="field__hint">Memuat slide...</p> : null}
 
@@ -655,6 +660,27 @@ export default function Page() {
 
             <div className="field-row">
               <div className="field">
+                <label className="field__label" htmlFor="slide-aspect-ratio">
+                  Aspect ratio
+                </label>
+                <select
+                  id="slide-aspect-ratio"
+                  className="field__input"
+                  value={currentSlide.aspect_ratio}
+                  onChange={(event) => {
+                    const nextValue = normalizeAspectRatio(event.target.value)
+                    updateSlideState({ aspect_ratio: nextValue })
+                    void persistSlide({ aspect_ratio: nextValue })
+                  }}
+                >
+                  {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                    <option key={ratio} value={ratio}>
+                      {ratio}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
                 <label className="field__label" htmlFor="slide-quantity">
                   Jumlah gambar
                 </label>
@@ -675,13 +701,23 @@ export default function Page() {
                   <option value={5}>5 gambar</option>
                 </select>
               </div>
-              <button className="btn btn-primary btn-wide" type="button" onClick={handleGenerate} disabled={isGenerating || !currentSlide.id}>
-                {isGenerating ? 'Sedang generate...' : 'Generate gambar'}
-              </button>
             </div>
+            <button className="btn btn-primary btn-wide field-action" type="button" onClick={handleGenerate} disabled={isGenerating || !currentSlide.id}>
+              {isGenerating ? 'Sedang generate...' : 'Generate gambar'}
+            </button>
             {generationError ? <p className="field__hint">{generationError}</p> : null}
           </section>
         </aside>
+        <button
+          className="column-resizer"
+          type="button"
+          aria-label="Ubah lebar panel kiri"
+          onPointerDown={(event) => {
+            event.preventDefault()
+            isResizingRef.current = true
+            document.body.classList.add('is-resizing')
+          }}
+        />
 
         <section className="workspace-column workspace-column--center">
           <section className="column-section column-section--fill">
@@ -719,7 +755,7 @@ export default function Page() {
                     <h3 className="preview-title display-font">Belum ada gambar</h3>
                     <p className="preview-body">Area ini hanya menampilkan hasil final setelah proses generate selesai.</p>
                     <div className="preview-footer">
-                      <span>1080 x 1920 px</span>
+                      <span>{activeAspectRatio}</span>
                       <span>Belum ada result</span>
                     </div>
                   </div>
@@ -747,13 +783,18 @@ export default function Page() {
                   const imageUrl = card.image_path ? `${API_BASE_URL}/results/${card.id}/image` : null
 
                   return (
-                    <article key={card.id} className="result-card" data-selected={isSelected ? 'true' : 'false'}>
-                      <div className="result-thumb" data-tone={card.tone}>
+                    <article
+                      key={card.id}
+                      className="result-card"
+                      data-selected={isSelected ? 'true' : 'false'}
+                      data-landscape={isLandscapeRatio ? 'true' : 'false'}
+                    >
+                      <div className="result-thumb" data-tone={card.tone} style={resultThumbStyle}>
                         {imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={imageUrl} alt={card.title} className="result-thumb__image" />
                         ) : (
-                          '9:16'
+                          activeAspectRatio
                         )}
                       </div>
                       {isSelected ? <span className="selected-badge">Dipilih</span> : null}

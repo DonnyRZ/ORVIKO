@@ -40,6 +40,7 @@ class PromptBuilder:
       config_metadata={
         "output_mode": action_spec.output_mode,
         "model_name": action_request.metadata.get("model_name", ""),
+        "aspect_ratio": action_request.input.get("aspect_ratio", "9:16"),
       },
     )
 
@@ -68,6 +69,7 @@ class PromptBuilder:
     if action_id == "refine_slide_brief":
       notes = str(payload.get("notes") or "").strip()
       embed_assets = payload.get("embed_assets") or []
+      aspect_ratio = str(payload.get("aspect_ratio") or "9:16").strip() or "9:16"
       embed_lines = []
       for asset in embed_assets:
         label = str(asset.get("label") or "").strip() or "Embed"
@@ -92,9 +94,10 @@ class PromptBuilder:
       slide_text = str(payload.get("slide_text") or "").strip()
       return {
         "role": "",
-        "task": "Create a production brief for a 9:16 slide image.",
+        "task": f"Create a production brief for a slide image with aspect ratio {aspect_ratio}.",
         "policy": "",
         "context": (
+          f"Canvas aspect ratio: {aspect_ratio}\n\n"
           "Slide text:\n"
           f"{slide_text}\n\n"
           f"{notes_hint}\n"
@@ -106,6 +109,7 @@ class PromptBuilder:
     production_brief = str(payload.get("production_brief") or "").strip()
     slide_text = str(payload.get("slide_text") or "").strip()
     embed_images = payload.get("embed_images") or []
+    aspect_ratio = str(payload.get("aspect_ratio") or "9:16").strip() or "9:16"
     embed_hint = (
       f"Reference images attached: {len(embed_images)}."
       if embed_images
@@ -116,6 +120,7 @@ class PromptBuilder:
       "task": "",
       "policy": "",
       "context": (
+        f"Canvas aspect ratio: {aspect_ratio}\n\n"
         "Production brief:\n"
         f"{production_brief}\n\n"
         "Visible slide text to render exactly:\n"
@@ -135,6 +140,7 @@ class PromptBuilder:
     embed_images = action_request.input.get("embed_images") or []
     notes = str(action_request.input.get("notes") or "").strip()
     slide_text = str(action_request.input.get("slide_text") or "")
+    aspect_ratio = str(action_request.input.get("aspect_ratio") or "9:16").strip() or "9:16"
     return {
       "action_id": action_spec.action_id,
       "layers": list(self.layer_order),
@@ -144,6 +150,7 @@ class PromptBuilder:
       "embed_count": len(embed_assets) or len(embed_images),
       "grounding_enabled": bool(action_request.input.get("use_grounding", False)),
       "slide_text_length": len(slide_text),
+      "aspect_ratio": aspect_ratio,
       "context_truncated": False,
       "timestamp": datetime.now(timezone.utc).isoformat(),
     }

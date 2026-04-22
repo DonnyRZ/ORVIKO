@@ -98,13 +98,16 @@ class GenAIClient:
     slide_text: str,
     notes: str | None,
     embed_assets: Sequence[dict[str, str]],
+    aspect_ratio: str | None = None,
   ) -> str:
+    active_aspect_ratio = aspect_ratio or self.image_aspect_ratio
     action_request = ActionRequest(
       action_id="refine_slide_brief",
       input={
         "slide_text": slide_text,
         "notes": notes,
         "embed_assets": list(embed_assets),
+        "aspect_ratio": active_aspect_ratio,
       },
       metadata={"model_name": self.prompt_model},
     )
@@ -148,7 +151,9 @@ class GenAIClient:
     count: int,
     use_grounding: bool = False,
     notes: str | None = None,
+    aspect_ratio: str | None = None,
   ) -> List[bytes]:
+    active_aspect_ratio = aspect_ratio or self.image_aspect_ratio
     requested_mood = _infer_requested_mood(notes, production_brief, slide_text)
     action_request = ActionRequest(
       action_id="generate_slide_image",
@@ -158,6 +163,7 @@ class GenAIClient:
         "embed_images": list(embed_images),
         "use_grounding": use_grounding,
         "notes": notes,
+        "aspect_ratio": active_aspect_ratio,
       },
       metadata={"model_name": self.image_model},
     )
@@ -185,7 +191,7 @@ class GenAIClient:
     image_config = None
     image_config_factory = getattr(types, "ImageConfig", None)
     if image_config_factory is not None:
-      image_config = image_config_factory(aspect_ratio=self.image_aspect_ratio)
+      image_config = image_config_factory(aspect_ratio=active_aspect_ratio)
       if self.image_size and "pro-image-preview" in self.image_model:
         image_config.image_size = self.image_size
 

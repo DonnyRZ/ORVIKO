@@ -17,7 +17,7 @@ def get_action_specs() -> dict[str, ActionSpec]:
     ),
     "generate_slide_image": ActionSpec(
       action_id="generate_slide_image",
-      goal="Generate a 9:16 slide image from the production brief, exact slide text, and embed images.",
+      goal="Generate a slide image for the requested aspect ratio from the production brief, exact slide text, and embed images.",
       system_prompt=settings.image_system_prompt or settings.system_prompt,
       output_mode="image",
       module_names=("image_role", "image_task", "image_policy", "image_output"),

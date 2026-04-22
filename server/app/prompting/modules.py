@@ -17,7 +17,7 @@ PROMPT_MODULES: dict[str, PromptModule] = {
   "refiner_policy": PromptModule(
     name="refiner_policy",
     layer="policy",
-    content="The slide text is the only text allowed to appear visibly in the final image and must be used exactly and completely. User notes are guidance only and must never appear as visible text. The design direction must feel extraordinary, highly creative, polished, and visually distinctive by default, not bland, generic, or template-like. Plan a clean 9:16 vertical composition with strong readability, bold hierarchy, intentional spacing, and a strong art direction that matches the meaning and tone of the slide text. Keep background noise controlled, but avoid flat or boring compositions. Favor an editorial, high-impact, visually memorable result with creative composition, clarity, color harmony, selective depth, and supportive visual storytelling when appropriate. Strong contrast or impact does not require a dark, moody, cinematic, or low-key palette by default. High-quality visuals may be bright, airy, fresh, luminous, colorful, or clean when that better fits the slide. Derive brightness, palette, and lighting from the slide meaning, readability needs, and any user notes rather than from a generic dramatic bias. If there is no strong signal toward a darker mood, prefer a balanced-light, readable, non-gloomy direction. Important content must be kept safely away from the extreme top and bottom edges. If embed images are provided, explain how each should be integrated contextually. If no embeds are provided, suggest simple supportive visuals only.",
+    content="The slide text is the only text allowed to appear visibly in the final image and must be used exactly and completely. User notes are guidance only and must never appear as visible text. The design direction must feel extraordinary, highly creative, polished, and visually distinctive by default, not bland, generic, or template-like. Plan a clean composition for the requested canvas aspect ratio with strong readability, bold hierarchy, intentional spacing, and a strong art direction that matches the meaning and tone of the slide text. Keep background noise controlled, but avoid flat or boring compositions. Favor an editorial, high-impact, visually memorable result with creative composition, clarity, color harmony, selective depth, and supportive visual storytelling when appropriate. Strong contrast or impact does not require a dark, moody, cinematic, or low-key palette by default. High-quality visuals may be bright, airy, fresh, luminous, colorful, or clean when that better fits the slide. Derive brightness, palette, and lighting from the slide meaning, readability needs, and any user notes rather than from a generic dramatic bias. If there is no strong signal toward a darker mood, prefer a balanced-light, readable, non-gloomy direction. Important content must be kept safely away from the extreme top and bottom edges. If embed images are provided, explain how each should be integrated contextually. If no embeds are provided, suggest simple supportive visuals only.",
   ),
   "refiner_output": PromptModule(
     name="refiner_output",
@@ -27,7 +27,7 @@ PROMPT_MODULES: dict[str, PromptModule] = {
   "image_role": PromptModule(
     name="image_role",
     layer="role",
-    content="You are generating a clean vertical slide image.",
+    content="You are generating a clean slide image for the requested canvas ratio.",
   ),
   "image_task": PromptModule(
     name="image_task",

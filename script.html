@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ODIN Assistant Prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --bg-soft: #f8fafc;
+        --card: rgba(255, 255, 255, 0.96);
+        --line: rgba(15, 23, 42, 0.08);
+        --line-strong: rgba(15, 23, 42, 0.12);
+        --text: #0f172a;
+        --muted: #475569;
+        --soft: #94a3b8;
+        --accent: #c1121f;
+        --accent-2: #e11d48;
+        --accent-soft: rgba(193, 18, 31, 0.1);
+        --shadow-soft: 0 16px 32px rgba(15, 23, 42, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        min-height: 100%;
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+        background: radial-gradient(140% 140% at 20% 0%, #fff1f2 0%, #f8fafc 55%, #ffffff 100%);
+        color: var(--text);
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .app-shell {
+        height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 0;
+      }
+
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 28px;
+        background: rgba(255, 255, 255, 0.92);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+      }
+
+      .brand-mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        animation: brand-logo-spin 14s linear infinite;
+      }
+
+      @keyframes brand-logo-spin {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(-360deg);
+        }
+      }
+
+      .brand-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .brand-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .brand-subtitle {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: rgba(15, 23, 42, 0.06);
+        color: #111827;
+      }
+
+      .tag-accent {
+        background: var(--accent-soft);
+        color: #b91c1c;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #ffffff;
+        color: var(--text);
+        border: 1px solid var(--line-strong);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      }
+
+      .btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 12px 24px rgba(193, 18, 31, 0.22);
+      }
+
+      .btn-ghost {
+        background: rgba(15, 23, 42, 0.06);
+        border: none;
+      }
+
+      .btn-small {
+        padding: 8px 12px;
+        font-size: 11px;
+      }
+
+      .workspace-grid {
+        min-height: 0;
+        height: 100%;
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr) 340px;
+        background: #ffffff;
+      }
+
+      .workspace-column {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      .workspace-column + .workspace-column {
+        border-left: 1px solid var(--line);
+      }
+
+      .workspace-column--scroll {
+        overflow-y: auto;
+      }
+
+      .column-section {
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 16px;
+      }
+
+      .column-section--fill {
+        flex: 1;
+        min-height: 0;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .section-eyebrow {
+        margin: 0 0 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--soft);
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .section-subtitle {
+        margin: 6px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #b91c1c;
+      }
+
+      .field-input,
+      .field-textarea {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 12px 14px;
+        font-size: 13px;
+        color: var(--text);
+        background: #ffffff;
+      }
+
+      .field-textarea {
+        resize: vertical;
+        min-height: 112px;
+      }
+
+      .field-hint {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .preset-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .preset-chip {
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #ffffff;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .preset-chip.is-active {
+        background: var(--accent-soft);
+        border-color: rgba(193, 18, 31, 0.2);
+        color: #b91c1c;
+      }
+
+      .step-list {
+        display: grid;
+      }
+
+      .step-item {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .step-item:last-child {
+        border-bottom: none;
+      }
+
+      .step-index {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--soft);
+      }
+
+      .step-item.is-active .step-index,
+      .step-item.is-done .step-index {
+        border-color: rgba(193, 18, 31, 0.25);
+        color: #b91c1c;
+      }
+
+      .step-name {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .step-copy {
+        margin: 6px 0 0;
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .stage-stack {
+        display: grid;
+        gap: 18px;
+        padding: 24px;
+      }
+
+      .agent-banner,
+      .surface {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+      }
+
+      .agent-banner {
+        padding: 18px 20px;
+        display: grid;
+        gap: 8px;
+        background: linear-gradient(160deg, rgba(193, 18, 31, 0.08), rgba(255, 255, 255, 0.94));
+      }
+
+      .agent-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .agent-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #e11d48;
+        box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.35);
+        animation: pulse 1.8s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.35);
+        }
+
+        70% {
+          box-shadow: 0 0 0 12px rgba(225, 29, 72, 0);
+        }
+
+        100% {
+          box-shadow: 0 0 0 0 rgba(225, 29, 72, 0);
+        }
+      }
+
+      .surface-header {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .surface-content {
+        padding: 20px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .stage-empty {
+        padding: 28px;
+        border: 1px dashed rgba(15, 23, 42, 0.18);
+        border-radius: 16px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .source-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .source-card {
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: #ffffff;
+        cursor: pointer;
+        display: grid;
+        gap: 8px;
+      }
+
+      .source-card.is-selected {
+        border-color: rgba(193, 18, 31, 0.25);
+        background: linear-gradient(180deg, rgba(193, 18, 31, 0.05), rgba(255, 255, 255, 1));
+      }
+
+      .source-card strong {
+        font-size: 15px;
+      }
+
+      .source-card p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .obs-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .obs-group {
+        display: grid;
+        gap: 10px;
+      }
+
+      .obs-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .obs-item,
+      .moment-item {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: #ffffff;
+      }
+
+      .obs-item textarea,
+      .moment-item textarea {
+        width: 100%;
+        min-height: 72px;
+        resize: vertical;
+        border-radius: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        padding: 10px 12px;
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--text);
+      }
+
+      .obs-actions,
+      .surface-actions,
+      .moment-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .moment-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .moment-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .moment-index {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--soft);
+      }
+
+      .sidebar-block {
+        display: grid;
+        gap: 14px;
+      }
+
+      .sidebar-list {
+        display: grid;
+      }
+
+      .sidebar-item {
+        display: grid;
+        gap: 6px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .sidebar-item:last-child {
+        border-bottom: none;
+      }
+
+      .sidebar-item strong {
+        font-size: 13px;
+      }
+
+      .sidebar-item p,
+      .sidebar-item ul {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+
+      .sidebar-item ul {
+        padding-left: 18px;
+      }
+
+      .result-block {
+        display: grid;
+        gap: 12px;
+      }
+
+      .result-chip {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .locked-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .locked-item {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: #ffffff;
+      }
+
+      .locked-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #b91c1c;
+      }
+
+      .locked-item p,
+      .locked-item li {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .locked-item ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      @media (max-width: 1180px) {
+        .workspace-grid {
+          grid-template-columns: 300px minmax(0, 1fr);
+        }
+
+        .workspace-column--right {
+          grid-column: 1 / -1;
+          border-left: none;
+          border-top: 1px solid var(--line);
+        }
+
+        .obs-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          overflow: auto;
+        }
+
+        .app-shell {
+          height: auto;
+          min-height: 100vh;
+        }
+
+        .app-header {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 18px;
+        }
+
+        .workspace-grid {
+          height: auto;
+          grid-template-columns: 1fr;
+        }
+
+        .workspace-column {
+          overflow: visible;
+        }
+
+        .workspace-column + .workspace-column {
+          border-left: none;
+          border-top: 1px solid var(--line);
+        }
+
+        .workspace-column--scroll {
+          overflow-y: visible;
+        }
+
+        .stage-stack {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="web/public/branding/logo-odin.png" alt="Logo ODIN" />
+          </div>
+          <div class="brand-copy">
+            <p class="brand-title">ODIN Assistant Prototype</p>
+            <p class="brand-subtitle">Flow asisten dari task sampai momen, dengan knowledge base dummy siap pakai</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="tag tag-accent">Mode Asisten</span>
+          <span class="tag">Knowledge base ready</span>
+        </div>
+      </header>
+
+      <section class="workspace-grid">
+        <aside class="workspace-column workspace-column--scroll">
+          <section class="column-section">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Task</p>
+                <h2 class="section-title">Mulai dari arahan user</h2>
+                <p class="section-subtitle">Isi task singkat, lalu agent akan menyiapkan shortlist source.</p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="task-input">Task / query</label>
+              <textarea
+                id="task-input"
+                class="field-textarea"
+                placeholder="Contoh: aku mau bahas kreator yang views-nya stuck padahal merasa kontennya sudah niat."
+              ></textarea>
+              <p class="field-hint">Task ini menjadi pintu masuk awal sebelum agent membaca context dari knowledge base.</p>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Preset cepat</span>
+              <div class="preset-row" id="preset-row"></div>
+            </div>
+
+            <div class="surface-actions">
+              <button class="btn btn-primary" type="button" id="start-btn">Mulai</button>
+              <button class="btn btn-ghost" type="button" id="reset-btn">Reset</button>
+            </div>
+          </section>
+
+          <section class="column-section" id="source-controls">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Source</p>
+                <h2 class="section-title">Pilih atau edit source</h2>
+                <p class="section-subtitle">User tetap pegang kontrol sebelum agent masuk ke observasi.</p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="source-edit">Source terpilih</label>
+              <textarea id="source-edit" class="field-textarea" placeholder="Source pilihan akan tampil di sini."></textarea>
+            </div>
+
+            <div class="surface-actions">
+              <button class="btn btn-primary" type="button" id="source-continue-btn">Lanjutkan</button>
+            </div>
+          </section>
+
+          <section class="column-section" id="observasi-controls">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Observasi</p>
+                <h2 class="section-title">Review sebelum jadi momen</h2>
+                <p class="section-subtitle">Perilaku, emosi, dan situasi bisa diedit atau di-generate ulang.</p>
+              </div>
+            </div>
+
+            <div class="surface-actions">
+              <button class="btn btn-ghost" type="button" id="regen-obs-btn">Generate ulang</button>
+              <button class="btn btn-primary" type="button" id="to-momen-btn">Lanjut ke momen</button>
+            </div>
+          </section>
+
+          <section class="column-section" id="momen-controls">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Momen</p>
+                <h2 class="section-title">Finalisasi scene</h2>
+                <p class="section-subtitle">Edit urutan momen sampai terasa cukup dekat ke video yang ingin dibangun.</p>
+              </div>
+            </div>
+
+            <div class="surface-actions">
+              <button class="btn btn-ghost" type="button" id="add-moment-btn">Tambah scene</button>
+              <button class="btn btn-primary" type="button" id="lock-result-btn">Kunci hasil</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="workspace-column workspace-column--scroll">
+          <div class="stage-stack">
+            <section class="agent-banner">
+              <div class="section-header">
+                <div>
+                  <p class="section-eyebrow">Agent</p>
+                  <h2 class="section-title">Status agent</h2>
+                </div>
+                <span class="tag" id="active-step-tag">Task</span>
+              </div>
+              <div class="agent-status">
+                <span class="agent-dot"></span>
+                <span id="agent-status-text">Siap membaca task dan memulai flow asisten.</span>
+              </div>
+            </section>
+
+            <section class="surface" id="task-stage">
+              <div class="surface-header">
+                <div>
+                  <p class="section-eyebrow">Tahap 1</p>
+                  <h2 class="section-title">Task sudah masuk</h2>
+                  <p class="section-subtitle">Task aktif akan dipakai agent untuk membaca knowledge base dummy dan menyiapkan shortlist source.</p>
+                </div>
+              </div>
+              <div class="surface-content" id="task-stage-content">
+                <div class="stage-empty">Belum ada task aktif. Isi task di panel kiri lalu klik <strong>Mulai</strong>.</div>
+              </div>
+            </section>
+
+            <section class="surface" id="source-stage">
+              <div class="surface-header">
+                <div>
+                  <p class="section-eyebrow">Tahap 2</p>
+                  <h2 class="section-title">Shortlist source</h2>
+                  <p class="section-subtitle">Agent menawarkan beberapa source yang paling mungkin relevan terhadap task dan knowledge base.</p>
+                </div>
+              </div>
+              <div class="surface-content" id="source-stage-content">
+                <div class="stage-empty">Source shortlist akan muncul setelah agent membaca task.</div>
+              </div>
+            </section>
+
+            <section class="surface" id="observasi-stage">
+              <div class="surface-header">
+                <div>
+                  <p class="section-eyebrow">Tahap 3</p>
+                  <h2 class="section-title">Perilaku, emosi, situasi</h2>
+                  <p class="section-subtitle">Hasil observasi ini adalah bahan sebelum agent menyusun momen.</p>
+                </div>
+              </div>
+              <div class="surface-content" id="observasi-stage-content">
+                <div class="stage-empty">Observasi akan muncul setelah source dikunci.</div>
+              </div>
+            </section>
+
+            <section class="surface" id="momen-stage">
+              <div class="surface-header">
+                <div>
+                  <p class="section-eyebrow">Tahap 4</p>
+                  <h2 class="section-title">Momen</h2>
+                  <p class="section-subtitle">Agent menyusun rekomendasi scene dari awal sampai akhir video. User bisa edit sebelum mengunci hasil.</p>
+                </div>
+              </div>
+              <div class="surface-content" id="momen-stage-content">
+                <div class="stage-empty">Momen akan muncul setelah observasi disetujui.</div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <aside class="workspace-column workspace-column--right workspace-column--scroll">
+          <section class="column-section">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Knowledge Base</p>
+                <h2 class="section-title">Context siap pakai</h2>
+                <p class="section-subtitle">Panel ini mensimulasikan knowledge base yang sudah dibangun dari script lama kreator.</p>
+              </div>
+            </div>
+            <div class="sidebar-block" id="kb-summary"></div>
+          </section>
+
+          <section class="column-section">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Progress</p>
+                <h2 class="section-title">Flow asisten</h2>
+                <p class="section-subtitle">Tahap aktif dominan di tengah, tapi keseluruhan progres tetap terlihat jelas.</p>
+              </div>
+            </div>
+            <div class="step-list" id="progress-list"></div>
+          </section>
+
+          <section class="column-section column-section--fill">
+            <div class="section-header">
+              <div>
+                <p class="section-eyebrow">Output</p>
+                <h2 class="section-title">Hasil yang sudah dikunci</h2>
+                <p class="section-subtitle">Result akhir fase prototype ini berhenti di momen.</p>
+              </div>
+            </div>
+            <div class="result-block" id="locked-result"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const presets = {
+        stagnan: {
+          id: "stagnan",
+          label: "Views stagnan",
+          quickTask:
+            "Aku mau bahas kreator yang views-nya stuck padahal dia merasa kontennya sudah niat dan lebih berisi dari konten lain.",
+          kb: {
+            creator: "Observasional, agak nyinyir halus, sering membahas ego kecil kreator saat menghadapi angka view.",
+            audience: "Kreator kecil yang sedang tumbuh dan sangat sensitif dengan performa konten.",
+            sourcePatterns: [
+              "frustration saat effort terasa tidak dibalas",
+              "fear dianggap tidak berkembang",
+              "desire ingin terlihat makin paham",
+            ],
+            momentPatterns: [
+              "pembuka dari adegan kecil yang cepat dikenali",
+              "tensi naik saat ekspektasi bertemu angka",
+              "penutup dengan ironi atau pembuktian diri",
+            ],
+          },
+          sources: [
+            {
+              title: "Frustration",
+              text: "Frustration: sudah niat bikin konten, tapi hasilnya kalah sama konten yang lebih ringan.",
+            },
+            {
+              title: "Fear",
+              text: "Fear: takut dianggap tidak berkembang walaupun sudah konsisten upload.",
+            },
+            {
+              title: "Desire",
+              text: "Desire: ingin terlihat makin paham soal konten di depan orang lain.",
+            },
+          ],
+          observationVariants: [
+            {
+              perilaku: [
+                "sering cek analytics diam-diam beberapa menit sekali",
+                "habis upload suka bilang kontennya sebenarnya isinya padat",
+                "mulai nyindir konten lain yang dianggap lebih receh",
+              ],
+              emosi: [
+                "kesal karena hasilnya tidak sebanding dengan effort",
+                "iri tapi gengsi mengakuinya",
+                "ingin tetap terlihat paling paham",
+              ],
+              situasi: [
+                "beberapa jam setelah upload saat view tidak bergerak",
+                "saat buka FYP dan lihat konten ringan orang lain meledak",
+                "malam hari setelah upload ketika mulai overthinking",
+              ],
+            },
+            {
+              perilaku: [
+                "sering refresh performa video sambil pura-pura santai",
+                "suka jelasin ke orang lain kenapa kontennya sebenarnya lebih niat",
+                "semakin sering cari pembenaran dari niche, jam upload, atau algoritma",
+              ],
+              emosi: [
+                "kecewa tapi tidak mau kelihatan kalah",
+                "capek karena berharap terlalu banyak dari satu upload",
+                "tersinggung saat konten sederhana orang lain justru naik",
+              ],
+              situasi: [
+                "pagi hari setelah bangun dan langsung cek performa semalam",
+                "saat lagi jawab komentar orang sambil jaga image",
+                "menjelang bikin konten berikutnya sambil merasa harus membuktikan sesuatu",
+              ],
+            },
+          ],
+          momentVariants: [
+            [
+              "Bangun pagi dengan rasa pede karena semalam yakin videonya sudah lebih strategis.",
+              "Langsung buka analytics sambil berharap view naik lebih cepat dari biasanya.",
+              "Lihat performa biasa saja dan mulai merasa ada yang tidak beres.",
+              "Cepat cari alasan supaya tetap merasa dirinya tidak salah.",
+              "Lihat konten orang lain yang terasa lebih ringan justru meledak dan mulai kepancing.",
+              "Masuk ke persiapan video berikutnya dengan niat bukan cuma bikin konten, tapi membuktikan dirinya masih paham permainan.",
+            ],
+            [
+              "Habis upload, dia masih percaya videonya kali ini akan terasa beda dari sebelumnya.",
+              "Beberapa jam kemudian dia cek view diam-diam sebelum ngapa-ngapain.",
+              "Angkanya tidak buruk, tapi jauh dari ekspektasi yang sudah dibangun di kepala.",
+              "Mulai ngomel halus tentang audience, jam upload, atau konten orang lain.",
+              "Tetap sok ngajarin orang lain seolah dia sudah tahu rumusnya.",
+              "Menjelang bikin konten baru, egonya lebih besar dari rasa penasarannya sendiri.",
+            ],
+          ],
+        },
+        berkembang: {
+          id: "berkembang",
+          label: "Terlihat paham",
+          quickTask:
+            "Aku mau bahas orang yang pengen terlihat sudah berkembang dan paham soal konten, padahal sebenarnya masih butuh validasi dari performa videonya.",
+          kb: {
+            creator: "Reflektif, tajam, suka membongkar gap antara image luar dan motivasi dalam.",
+            audience: "Kreator yang ingin terlihat semakin matang, tapi diam-diam masih rapuh terhadap validasi.",
+            sourcePatterns: [
+              "desire untuk terlihat jadi",
+              "fear terlihat belum matang",
+              "behavior sok paham sebagai pelindung ego",
+            ],
+            momentPatterns: [
+              "opening dari situasi sehari-hari yang kelihatan kecil",
+              "benturan muncul dari gap antara persona dan realita",
+              "ending condong ke realisasi pahit atau ironi halus",
+            ],
+          },
+          sources: [
+            {
+              title: "Desire",
+              text: "Desire: ingin terlihat sudah jadi kreator yang paham strategi dan tidak lagi bingung soal konten.",
+            },
+            {
+              title: "Behavior",
+              text: "Behavior: mulai sok ngajarin orang lain walaupun dirinya sendiri masih sangat bergantung pada performa angka.",
+            },
+            {
+              title: "Fear",
+              text: "Fear: takut terlihat belum berkembang walaupun sudah cukup lama bermain di dunia konten.",
+            },
+          ],
+          observationVariants: [
+            {
+              perilaku: [
+                "suka kasih saran ke orang lain dengan nada yakin",
+                "sering pakai istilah konten supaya terdengar lebih matang",
+                "pilih upload yang aman supaya image-nya tidak turun",
+              ],
+              emosi: [
+                "ingin dianggap kompeten",
+                "gengsi kalau harus kelihatan masih belajar",
+                "gelisah saat angka tidak sesuai image dirinya",
+              ],
+              situasi: [
+                "saat ada orang lain minta pendapat soal konten",
+                "sebelum upload video yang dia sendiri belum sepenuhnya yakin",
+                "ketika performa konten turun dan dia merasa image-nya ikut terganggu",
+              ],
+            },
+            {
+              perilaku: [
+                "mulai sering framing dirinya seperti orang yang sudah punya sistem",
+                "diam-diam hapus konten yang menurutnya bikin image turun",
+                "jawab pertanyaan seolah sudah tahu semua tahapnya",
+              ],
+              emosi: [
+                "pede di luar tapi rapuh di dalam",
+                "haus validasi tapi tidak mau terlihat butuh",
+                "tersinggung kalau realita tidak sejalan dengan persona yang dia bangun",
+              ],
+              situasi: [
+                "pas ngobrol dengan sesama kreator dan ingin terlihat unggul",
+                "beberapa menit sebelum publish sambil nimbang apakah videonya cukup layak",
+                "saat lihat orang lain tumbuh lebih cepat dari dirinya",
+              ],
+            },
+          ],
+          momentVariants: [
+            [
+              "Mulai dari adegan dia bicara sangat yakin soal strategi konten di depan orang lain.",
+              "Begitu sendirian, dia langsung cek performa videonya sendiri dengan wajah yang berubah.",
+              "Angka yang muncul tidak sekuat persona yang tadi dia tampilkan.",
+              "Dia tetap menjaga image, tapi mulai defensif di dalam kepala sendiri.",
+              "Lihat orang lain tumbuh lebih cepat dan mulai merasa image dirinya goyah.",
+              "Masuk ke konten berikutnya dengan motif mempertahankan persona, bukan sekadar menyampaikan ide.",
+            ],
+            [
+              "Dia terlihat seperti orang yang sudah tahu apa yang sedang dia lakukan.",
+              "Ada momen kecil yang menunjukkan dia masih sangat peduli pada angka, lebih dari yang ingin dia akui.",
+              "Ketika hasilnya tidak sesuai harapan, dia mulai menggeser fokus dari belajar ke menjaga image.",
+              "Semakin dia bicara yakin ke orang lain, semakin terasa ada celah di balik kepercayaan dirinya.",
+              "Benturan muncul saat realita performa tidak mendukung image yang sudah dia bangun sendiri.",
+              "Video ditutup di titik ketika dia masih mencoba terlihat stabil, padahal motivasinya mulai bergeser ke pembuktian diri.",
+            ],
+          ],
+        },
+      };
+
+      const steps = [
+        { id: "task", title: "Task", copy: "User memberi arahan awal yang akan dibaca agent." },
+        { id: "source", title: "Source", copy: "Agent menyiapkan shortlist source, lalu user memilih arah." },
+        {
+          id: "observasi",
+          title: "Perilaku / Emosi / Situasi",
+          copy: "Agent menyusun observasi dari source yang dipilih, user bisa review dan edit.",
+        },
+        { id: "momen", title: "Momen", copy: "Agent menyusun scene terurut dari awal sampai akhir video." },
+        { id: "result", title: "Result", copy: "Hasil final fase ini dikunci sampai tahap momen." },
+      ];
+
+      const state = {
+        currentStep: "task",
+        completed: new Set(),
+        selectedPresetId: "stagnan",
+        activePresetId: "stagnan",
+        taskText: "",
+        sourceOptions: [],
+        selectedSourceIndex: null,
+        sourceText: "",
+        observationVariantIndex: 0,
+        observations: {
+          perilaku: [],
+          emosi: [],
+          situasi: [],
+        },
+        momenVariantIndex: 0,
+        moments: [],
+        lockedResult: null,
+        agentStatus: "Siap membaca task dan memulai flow asisten.",
+        loading: false,
+      };
+
+      const taskInput = document.getElementById("task-input");
+      const presetRow = document.getElementById("preset-row");
+      const startBtn = document.getElementById("start-btn");
+      const resetBtn = document.getElementById("reset-btn");
+      const sourceEdit = document.getElementById("source-edit");
+      const sourceContinueBtn = document.getElementById("source-continue-btn");
+      const regenObsBtn = document.getElementById("regen-obs-btn");
+      const toMomenBtn = document.getElementById("to-momen-btn");
+      const addMomentBtn = document.getElementById("add-moment-btn");
+      const lockResultBtn = document.getElementById("lock-result-btn");
+
+      const sourceControls = document.getElementById("source-controls");
+      const observasiControls = document.getElementById("observasi-controls");
+      const momenControls = document.getElementById("momen-controls");
+
+      const taskStageContent = document.getElementById("task-stage-content");
+      const sourceStageContent = document.getElementById("source-stage-content");
+      const observasiStageContent = document.getElementById("observasi-stage-content");
+      const momenStageContent = document.getElementById("momen-stage-content");
+      const kbSummary = document.getElementById("kb-summary");
+      const progressList = document.getElementById("progress-list");
+      const lockedResult = document.getElementById("locked-result");
+      const agentStatusText = document.getElementById("agent-status-text");
+      const activeStepTag = document.getElementById("active-step-tag");
+
+      function setAgentStatus(text) {
+        state.agentStatus = text;
+        agentStatusText.textContent = text;
+      }
+
+      function getPreset(id) {
+        return presets[id] || presets.stagnan;
+      }
+
+      function detectPresetFromTask(task) {
+        const text = task.toLowerCase();
+        if (
+          text.includes("stuck") ||
+          text.includes("view") ||
+          text.includes("views") ||
+          text.includes("stagnan") ||
+          text.includes("seret")
+        ) {
+          return "stagnan";
+        }
+        if (
+          text.includes("paham") ||
+          text.includes("berkembang") ||
+          text.includes("validasi") ||
+          text.includes("image")
+        ) {
+          return "berkembang";
+        }
+        return state.selectedPresetId || "stagnan";
+      }
+
+      function setLoading(statusText, work, delay = 900) {
+        state.loading = true;
+        syncButtons();
+        setAgentStatus(statusText);
+        window.setTimeout(() => {
+          work();
+          state.loading = false;
+          syncButtons();
+          render();
+        }, delay);
+      }
+
+      function setStep(stepId) {
+        state.currentStep = stepId;
+      }
+
+      function markDone(stepId) {
+        state.completed.add(stepId);
+      }
+
+      function isStepVisible(stepId) {
+        const order = steps.map((step) => step.id);
+        return order.indexOf(state.currentStep) >= order.indexOf(stepId) || state.completed.has(stepId);
+      }
+
+      function syncButtons() {
+        startBtn.disabled = state.loading;
+        resetBtn.disabled = state.loading;
+        sourceContinueBtn.disabled = state.loading || !state.sourceText.trim();
+        regenObsBtn.disabled = state.loading || !isStepVisible("observasi");
+        toMomenBtn.disabled =
+          state.loading ||
+          !state.observations.perilaku.length ||
+          !state.observations.emosi.length ||
+          !state.observations.situasi.length;
+        addMomentBtn.disabled = state.loading || !isStepVisible("momen");
+        lockResultBtn.disabled = state.loading || !state.moments.length;
+      }
+
+      function renderPresetRow() {
+        presetRow.innerHTML = "";
+        Object.values(presets).forEach((preset) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "preset-chip" + (state.selectedPresetId === preset.id ? " is-active" : "");
+          button.textContent = preset.label;
+          button.addEventListener("click", () => {
+            if (state.loading) return;
+            state.selectedPresetId = preset.id;
+            taskInput.value = preset.quickTask;
+            renderPresetRow();
+          });
+          presetRow.appendChild(button);
+        });
+      }
+
+      function renderTaskStage() {
+        if (!state.taskText.trim()) {
+          taskStageContent.innerHTML =
+            '<div class="stage-empty">Belum ada task aktif. Isi task di panel kiri lalu klik <strong>Mulai</strong>.</div>';
+          return;
+        }
+
+        taskStageContent.innerHTML = `
+          <div class="locked-item">
+            <strong>Task aktif</strong>
+            <p>${escapeHtml(state.taskText)}</p>
+          </div>
+          <div class="result-chip">Preset dummy yang sedang dipakai: <strong>${escapeHtml(
+            getPreset(state.activePresetId).label
+          )}</strong>.</div>
+        `;
+      }
+
+      function renderSourceStage() {
+        if (!state.sourceOptions.length) {
+          sourceStageContent.innerHTML =
+            '<div class="stage-empty">Source shortlist akan muncul setelah agent membaca task.</div>';
+          return;
+        }
+
+        const cards = state.sourceOptions
+          .map(
+            (option, index) => `
+              <button
+                type="button"
+                class="source-card${state.selectedSourceIndex === index ? " is-selected" : ""}"
+                data-source-index="${index}"
+              >
+                <strong>${escapeHtml(option.title)}</strong>
+                <p>${escapeHtml(option.text)}</p>
+              </button>
+            `
+          )
+          .join("");
+
+        sourceStageContent.innerHTML = `
+          <div class="source-grid">${cards}</div>
+          <div class="result-chip">User bisa memilih satu source lalu mengedit wording-nya di panel kiri sebelum melanjutkan.</div>
+        `;
+
+        sourceStageContent.querySelectorAll("[data-source-index]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (state.loading) return;
+            const index = Number(button.getAttribute("data-source-index"));
+            state.selectedSourceIndex = index;
+            state.sourceText = state.sourceOptions[index].text;
+            sourceEdit.value = state.sourceText;
+            syncButtons();
+            renderSourceStage();
+            renderProgress();
+          });
+        });
+      }
+
+      function renderObservasiStage() {
+        const { perilaku, emosi, situasi } = state.observations;
+        if (!perilaku.length && !emosi.length && !situasi.length) {
+          observasiStageContent.innerHTML =
+            '<div class="stage-empty">Observasi akan muncul setelah source dikunci.</div>';
+          return;
+        }
+
+        const groups = [
+          { key: "perilaku", title: "Perilaku", values: perilaku },
+          { key: "emosi", title: "Emosi", values: emosi },
+          { key: "situasi", title: "Situasi", values: situasi },
+        ];
+
+        observasiStageContent.innerHTML = `
+          <div class="obs-grid">
+            ${groups
+              .map(
+                (group) => `
+                  <section class="obs-group">
+                    <div class="section-header">
+                      <div>
+                        <p class="section-eyebrow">${group.title}</p>
+                        <h3 class="section-title">${group.title} hasil agent</h3>
+                      </div>
+                    </div>
+                    <div class="obs-list">
+                      ${group.values
+                        .map(
+                          (value, index) => `
+                            <div class="obs-item">
+                              <textarea data-obs-group="${group.key}" data-obs-index="${index}">${escapeHtml(value)}</textarea>
+                            </div>
+                          `
+                        )
+                        .join("")}
+                    </div>
+                  </section>
+                `
+              )
+              .join("")}
+          </div>
+          <div class="result-chip">Di prototype ini, user bisa mengedit langsung tiap poin sebelum lanjut ke momen.</div>
+        `;
+
+        observasiStageContent.querySelectorAll("[data-obs-group]").forEach((textarea) => {
+          textarea.addEventListener("input", (event) => {
+            const target = event.target;
+            const group = target.getAttribute("data-obs-group");
+            const index = Number(target.getAttribute("data-obs-index"));
+            state.observations[group][index] = target.value;
+            renderLockedResult();
+          });
+        });
+      }
+
+      function renderMomenStage() {
+        if (!state.moments.length) {
+          momenStageContent.innerHTML =
+            '<div class="stage-empty">Momen akan muncul setelah observasi disetujui.</div>';
+          return;
+        }
+
+        momenStageContent.innerHTML = `
+          <div class="moment-list">
+            ${state.moments
+              .map(
+                (moment, index) => `
+                  <div class="moment-item">
+                    <div class="moment-meta">
+                      <span class="moment-index">Scene ${index + 1}</span>
+                      <div class="moment-actions">
+                        <button class="btn btn-small" type="button" data-action="up" data-index="${index}">Naik</button>
+                        <button class="btn btn-small" type="button" data-action="down" data-index="${index}">Turun</button>
+                        <button class="btn btn-small btn-ghost" type="button" data-action="delete" data-index="${index}">Hapus</button>
+                      </div>
+                    </div>
+                    <textarea data-moment-index="${index}">${escapeHtml(moment)}</textarea>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+          <div class="result-chip">Urutan scene ini sudah sangat dekat ke output akhir fase prototype, tetapi masih editable sebelum dikunci.</div>
+        `;
+
+        momenStageContent.querySelectorAll("[data-moment-index]").forEach((textarea) => {
+          textarea.addEventListener("input", (event) => {
+            const index = Number(event.target.getAttribute("data-moment-index"));
+            state.moments[index] = event.target.value;
+            renderLockedResult();
+          });
+        });
+
+        momenStageContent.querySelectorAll("[data-action]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const index = Number(button.getAttribute("data-index"));
+            const action = button.getAttribute("data-action");
+            if (action === "delete") {
+              state.moments.splice(index, 1);
+            } else if (action === "up" && index > 0) {
+              [state.moments[index - 1], state.moments[index]] = [state.moments[index], state.moments[index - 1]];
+            } else if (action === "down" && index < state.moments.length - 1) {
+              [state.moments[index + 1], state.moments[index]] = [state.moments[index], state.moments[index + 1]];
+            }
+            syncButtons();
+            renderMomenStage();
+            renderLockedResult();
+          });
+        });
+      }
+
+      function renderKbSummary() {
+        const preset = getPreset(state.activePresetId);
+        kbSummary.innerHTML = `
+          <div class="sidebar-list">
+            <div class="sidebar-item">
+              <strong>Creator profile</strong>
+              <p>${escapeHtml(preset.kb.creator)}</p>
+            </div>
+            <div class="sidebar-item">
+              <strong>Audience</strong>
+              <p>${escapeHtml(preset.kb.audience)}</p>
+            </div>
+            <div class="sidebar-item">
+              <strong>Source patterns</strong>
+              <ul>${preset.kb.sourcePatterns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+            <div class="sidebar-item">
+              <strong>Moment patterns</strong>
+              <ul>${preset.kb.momentPatterns.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderProgress() {
+        activeStepTag.textContent = steps.find((step) => step.id === state.currentStep)?.title || "Task";
+        progressList.innerHTML = steps
+          .map((step, index) => {
+            const active = state.currentStep === step.id;
+            const done = state.completed.has(step.id);
+            return `
+              <div class="step-item${active ? " is-active" : ""}${done ? " is-done" : ""}">
+                <div class="step-index">${done ? "✓" : index + 1}</div>
+                <div>
+                  <p class="step-name">${step.title}</p>
+                  <p class="step-copy">${step.copy}</p>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderLockedResult() {
+        if (!state.lockedResult) {
+          lockedResult.innerHTML = `
+            <div class="result-chip">Belum ada hasil final yang dikunci. Setelah momen selesai direview, klik <strong>Kunci hasil</strong>.</div>
+            ${renderLiveWorkingSummary()}
+          `;
+          return;
+        }
+
+        const result = state.lockedResult;
+        lockedResult.innerHTML = `
+          <div class="locked-list">
+            <div class="locked-item">
+              <strong>Task</strong>
+              <p>${escapeHtml(result.task)}</p>
+            </div>
+            <div class="locked-item">
+              <strong>Source</strong>
+              <p>${escapeHtml(result.source)}</p>
+            </div>
+            <div class="locked-item">
+              <strong>Observasi final</strong>
+              <ul>
+                ${result.observations.perilaku.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                ${result.observations.emosi.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                ${result.observations.situasi.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="locked-item">
+              <strong>Momen final</strong>
+              <ul>${result.moments.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+            <div class="surface-actions">
+              <button class="btn btn-ghost" type="button" id="edit-momen-btn">Ubah momen</button>
+              <button class="btn" type="button" id="restart-flow-btn">Mulai ulang</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("edit-momen-btn").addEventListener("click", () => {
+          setStep("momen");
+          setAgentStatus("User kembali ke tahap momen untuk melakukan revisi.");
+          render();
+        });
+
+        document.getElementById("restart-flow-btn").addEventListener("click", resetFlow);
+      }
+
+      function renderLiveWorkingSummary() {
+        const chunks = [];
+        if (state.taskText.trim()) {
+          chunks.push(`
+            <div class="locked-item">
+              <strong>Task berjalan</strong>
+              <p>${escapeHtml(state.taskText)}</p>
+            </div>
+          `);
+        }
+        if (state.sourceText.trim()) {
+          chunks.push(`
+            <div class="locked-item">
+              <strong>Source saat ini</strong>
+              <p>${escapeHtml(state.sourceText)}</p>
+            </div>
+          `);
+        }
+        if (state.moments.length) {
+          chunks.push(`
+            <div class="locked-item">
+              <strong>Momen saat ini</strong>
+              <ul>${state.moments.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+          `);
+        }
+        return chunks.join("");
+      }
+
+      function renderControlVisibility() {
+        sourceControls.style.display = isStepVisible("source") ? "grid" : "none";
+        observasiControls.style.display = isStepVisible("observasi") ? "grid" : "none";
+        momenControls.style.display = isStepVisible("momen") ? "grid" : "none";
+      }
+
+      function render() {
+        renderPresetRow();
+        renderTaskStage();
+        renderSourceStage();
+        renderObservasiStage();
+        renderMomenStage();
+        renderKbSummary();
+        renderProgress();
+        renderLockedResult();
+        renderControlVisibility();
+        syncButtons();
+        sourceEdit.value = state.sourceText;
+        taskInput.value = state.taskText;
+      }
+
+      function applyObservationVariant(index) {
+        const preset = getPreset(state.activePresetId);
+        const variant = preset.observationVariants[index % preset.observationVariants.length];
+        state.observations = {
+          perilaku: [...variant.perilaku],
+          emosi: [...variant.emosi],
+          situasi: [...variant.situasi],
+        };
+      }
+
+      function applyMomentVariant(index) {
+        const preset = getPreset(state.activePresetId);
+        const variant = preset.momentVariants[index % preset.momentVariants.length];
+        state.moments = [...variant];
+      }
+
+      function startFlow() {
+        const task = taskInput.value.trim();
+        if (!task) {
+          setAgentStatus("Isi task dulu supaya agent punya arah kerja yang jelas.");
+          return;
+        }
+
+        state.taskText = task;
+        state.lockedResult = null;
+        state.completed.clear();
+        setStep("task");
+        markDone("task");
+        state.activePresetId = detectPresetFromTask(task);
+
+        setLoading("Agent sedang membaca knowledge base dan menyiapkan shortlist source...", () => {
+          const preset = getPreset(state.activePresetId);
+          state.sourceOptions = preset.sources.map((item) => ({ ...item }));
+          state.selectedSourceIndex = 0;
+          state.sourceText = state.sourceOptions[0].text;
+          setStep("source");
+          setAgentStatus("Agent sudah menyiapkan shortlist source. Pilih arah yang paling pas atau edit manual.");
+        });
+      }
+
+      function continueFromSource() {
+        const nextSource = sourceEdit.value.trim();
+        if (!nextSource) {
+          setAgentStatus("Source tidak boleh kosong sebelum lanjut ke observasi.");
+          return;
+        }
+
+        state.sourceText = nextSource;
+        markDone("source");
+        state.observationVariantIndex = 0;
+
+        setLoading("Agent sedang menyusun perilaku, emosi, dan situasi dari source yang dipilih...", () => {
+          applyObservationVariant(state.observationVariantIndex);
+          setStep("observasi");
+          setAgentStatus("Observasi sudah siap. Review dulu sebelum agent masuk ke tahap momen.");
+        });
+      }
+
+      function regenerateObservations() {
+        markDone("source");
+        state.observationVariantIndex += 1;
+        setLoading("Agent sedang menyusun ulang observasi dummy...", () => {
+          applyObservationVariant(state.observationVariantIndex);
+          setStep("observasi");
+          setAgentStatus("Observasi versi baru sudah siap. User bisa edit lagi sebelum lanjut.");
+        }, 700);
+      }
+
+      function continueToMomen() {
+        markDone("observasi");
+        state.momenVariantIndex = 0;
+        setLoading("Agent sedang menyusun rekomendasi momen dari observasi yang sudah disepakati...", () => {
+          applyMomentVariant(state.momenVariantIndex);
+          setStep("momen");
+          setAgentStatus("Momen sudah siap. Review urutan scene sebelum dikunci.");
+        }, 900);
+      }
+
+      function addMoment() {
+        state.moments.push("Scene baru: tambahkan momen yang ingin kamu masukkan ke dalam alur video.");
+        render();
+      }
+
+      function lockCurrentResult() {
+        if (!state.moments.length) {
+          setAgentStatus("Belum ada momen untuk dikunci.");
+          return;
+        }
+
+        markDone("momen");
+        state.lockedResult = {
+          task: state.taskText,
+          source: state.sourceText,
+          observations: {
+            perilaku: [...state.observations.perilaku],
+            emosi: [...state.observations.emosi],
+            situasi: [...state.observations.situasi],
+          },
+          moments: [...state.moments],
+        };
+        setStep("result");
+        setAgentStatus("Hasil akhir fase prototype sudah dikunci. User bisa review atau kembali ke momen.");
+        render();
+      }
+
+      function resetFlow() {
+        state.currentStep = "task";
+        state.completed.clear();
+        state.activePresetId = state.selectedPresetId;
+        state.taskText = "";
+        state.sourceOptions = [];
+        state.selectedSourceIndex = null;
+        state.sourceText = "";
+        state.observationVariantIndex = 0;
+        state.observations = { perilaku: [], emosi: [], situasi: [] };
+        state.momenVariantIndex = 0;
+        state.moments = [];
+        state.lockedResult = null;
+        state.loading = false;
+        setAgentStatus("Flow direset. Isi task baru untuk mencoba lagi.");
+        render();
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      startBtn.addEventListener("click", startFlow);
+      resetBtn.addEventListener("click", resetFlow);
+      sourceContinueBtn.addEventListener("click", continueFromSource);
+      regenObsBtn.addEventListener("click", regenerateObservations);
+      toMomenBtn.addEventListener("click", continueToMomen);
+      addMomentBtn.addEventListener("click", addMoment);
+      lockResultBtn.addEventListener("click", lockCurrentResult);
+
+      sourceEdit.addEventListener("input", (event) => {
+        state.sourceText = event.target.value;
+        syncButtons();
+        renderLockedResult();
+      });
+
+      taskInput.value = getPreset(state.selectedPresetId).quickTask;
+      state.taskText = taskInput.value;
+      render();
+    </script>
+  </body>
+</html>

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
+import json
 from pathlib import Path
 import sqlite3
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 from uuid import uuid4
 
 BASE_DIR = Path(__file__).resolve().parents[3]
@@ -26,24 +27,29 @@ def init_db() -> None:
   try:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
-    conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA foreign_keys=OFF;")
     conn.execute(
       """
       CREATE TABLE IF NOT EXISTS slides (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
         title TEXT NOT NULL,
-        subtitle TEXT NOT NULL,
         text TEXT NOT NULL,
         design TEXT NOT NULL,
         quantity INTEGER NOT NULL DEFAULT 1,
-        position INTEGER NOT NULL DEFAULT 0,
+        aspect_ratio TEXT NOT NULL DEFAULT '9:16',
         selected_result_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
       """
     )
+    if (
+      _column_exists(conn, "slides", "name")
+      or _column_exists(conn, "slides", "position")
+      or _column_exists(conn, "slides", "subtitle")
+      or not _column_exists(conn, "slides", "aspect_ratio")
+    ):
+      _migrate_slides_table(conn)
     conn.execute(
       """
       CREATE TABLE IF NOT EXISTS slide_results (
@@ -78,17 +84,98 @@ def init_db() -> None:
     )
     if not _column_exists(conn, "embed_assets", "context"):
       conn.execute("ALTER TABLE embed_assets ADD COLUMN context TEXT NOT NULL DEFAULT ''")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_slides_position ON slides(position)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_results_slide_id ON slide_results(slide_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_embeds_slide_id ON embed_assets(slide_id)")
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS script_knowledge_bases (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      """
+    )
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS script_workspaces (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        knowledge_base_id TEXT NOT NULL,
+        knowledge_base_snapshot TEXT NOT NULL DEFAULT '{}',
+        current_step TEXT NOT NULL DEFAULT 'task',
+        active_profile_id TEXT NOT NULL DEFAULT '',
+        task TEXT NOT NULL DEFAULT '',
+        selected_source TEXT NOT NULL DEFAULT '',
+        source_options TEXT NOT NULL DEFAULT '[]',
+        observations TEXT NOT NULL DEFAULT '{}',
+        moments TEXT NOT NULL DEFAULT '[]',
+        observation_variant_index INTEGER NOT NULL DEFAULT 0,
+        moment_variant_index INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (knowledge_base_id) REFERENCES script_knowledge_bases(id) ON DELETE RESTRICT
+      )
+      """
+    )
+    if not _column_exists(conn, "script_workspaces", "knowledge_base_snapshot"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN knowledge_base_snapshot TEXT NOT NULL DEFAULT '{}'")
+    if not _column_exists(conn, "script_workspaces", "active_profile_id"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN active_profile_id TEXT NOT NULL DEFAULT ''")
+    if not _column_exists(conn, "script_workspaces", "observation_variant_index"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN observation_variant_index INTEGER NOT NULL DEFAULT 0")
+    if not _column_exists(conn, "script_workspaces", "moment_variant_index"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN moment_variant_index INTEGER NOT NULL DEFAULT 0")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_script_workspace_kb_id ON script_workspaces(knowledge_base_id)")
     conn.commit()
   finally:
+    conn.execute("PRAGMA foreign_keys=ON;")
     conn.close()
 
 
 def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
   rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
   return any(row[1] == column for row in rows)
+
+
+def _migrate_slides_table(conn: sqlite3.Connection) -> None:
+  has_aspect_ratio = _column_exists(conn, "slides", "aspect_ratio")
+  conn.execute(
+    """
+    CREATE TABLE slides_v2 (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      text TEXT NOT NULL,
+      design TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      aspect_ratio TEXT NOT NULL DEFAULT '9:16',
+      selected_result_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+    """
+  )
+  conn.execute(
+    (
+      """
+      INSERT INTO slides_v2 (id, title, text, design, quantity, aspect_ratio, selected_result_id, created_at, updated_at)
+      SELECT id, title, text, design, quantity, COALESCE(aspect_ratio, '9:16'), selected_result_id, created_at, updated_at
+      FROM slides
+      ORDER BY created_at ASC
+      """
+      if has_aspect_ratio
+      else """
+      INSERT INTO slides_v2 (id, title, text, design, quantity, aspect_ratio, selected_result_id, created_at, updated_at)
+      SELECT id, title, text, design, quantity, '9:16', selected_result_id, created_at, updated_at
+      FROM slides
+      ORDER BY created_at ASC
+      """
+    )
+  )
+  conn.execute("DROP TABLE slides")
+  conn.execute("ALTER TABLE slides_v2 RENAME TO slides")
 
 
 @contextmanager
@@ -134,28 +221,26 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 
 def create_slide(
   conn: sqlite3.Connection,
-  name: str,
   title: str,
-  subtitle: str,
   text: str,
   design: str,
   quantity: int,
-  position: int,
+  aspect_ratio: str,
 ) -> dict:
   slide_id = uuid4().hex
   timestamp = _utc_now()
   conn.execute(
     """
-    INSERT INTO slides (id, name, title, subtitle, text, design, quantity, position, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO slides (id, title, text, design, quantity, aspect_ratio, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """,
-    (slide_id, name, title, subtitle, text, design, quantity, position, timestamp, timestamp),
+    (slide_id, title, text, design, quantity, aspect_ratio, timestamp, timestamp),
   )
   return get_slide(conn, slide_id)
 
 
 def list_slides(conn: sqlite3.Connection) -> list[dict]:
-  rows = conn.execute("SELECT * FROM slides ORDER BY position ASC, created_at ASC").fetchall()
+  rows = conn.execute("SELECT * FROM slides ORDER BY created_at ASC").fetchall()
   return [dict(row) for row in rows]
 
 
@@ -169,13 +254,11 @@ def update_slide(conn: sqlite3.Connection, slide_id: str, data: dict) -> Optiona
     return get_slide(conn, slide_id)
 
   allowed = {
-    "name",
     "title",
-    "subtitle",
     "text",
     "design",
     "quantity",
-    "position",
+    "aspect_ratio",
     "selected_result_id",
   }
   updates = []
@@ -329,3 +412,179 @@ def update_embed(conn: sqlite3.Connection, embed_id: str, data: dict) -> Optiona
   if conn.total_changes == 0:
     return None
   return get_embed(conn, embed_id)
+
+
+def _json_dumps(value: Any) -> str:
+  return json.dumps(value, ensure_ascii=True)
+
+
+def _json_loads(value: str, fallback: Any) -> Any:
+  if not value:
+    return fallback
+  try:
+    return json.loads(value)
+  except json.JSONDecodeError:
+    return fallback
+
+
+def _normalize_script_observations(value: Any) -> dict:
+  if not isinstance(value, dict):
+    return {"perilaku": [], "emosi": [], "situasi": []}
+  return {
+    "perilaku": value.get("perilaku") if isinstance(value.get("perilaku"), list) else [],
+    "emosi": value.get("emosi") if isinstance(value.get("emosi"), list) else [],
+    "situasi": value.get("situasi") if isinstance(value.get("situasi"), list) else [],
+  }
+
+
+def _script_workspace_row_to_dict(row: sqlite3.Row) -> dict:
+  if not row:
+    return {}
+  data = dict(row)
+  data["source_options"] = _json_loads(data.get("source_options", "[]"), [])
+  data["observations"] = _normalize_script_observations(_json_loads(data.get("observations", "{}"), {}))
+  data["moments"] = _json_loads(data.get("moments", "[]"), [])
+  data["knowledge_base_snapshot"] = _json_loads(data.get("knowledge_base_snapshot", "{}"), {})
+  return data
+
+
+def _script_knowledge_base_row_to_dict(row: sqlite3.Row) -> dict:
+  if not row:
+    return {}
+  data = dict(row)
+  data["summary"] = _json_loads(data.get("summary", "{}"), {})
+  data["data"] = _json_loads(data.get("data", "{}"), {})
+  return data
+
+
+def create_script_knowledge_base(
+  conn: sqlite3.Connection,
+  title: str,
+  summary: dict,
+  data: dict,
+) -> dict:
+  knowledge_base_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO script_knowledge_bases (id, title, summary, data, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """,
+    (knowledge_base_id, title, _json_dumps(summary), _json_dumps(data), timestamp, timestamp),
+  )
+  return get_script_knowledge_base(conn, knowledge_base_id)
+
+
+def list_script_knowledge_bases(conn: sqlite3.Connection) -> list[dict]:
+  rows = conn.execute("SELECT * FROM script_knowledge_bases ORDER BY created_at ASC").fetchall()
+  return [_script_knowledge_base_row_to_dict(row) for row in rows]
+
+
+def get_script_knowledge_base(conn: sqlite3.Connection, knowledge_base_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_knowledge_bases WHERE id = ?", (knowledge_base_id,)).fetchone()
+  return _script_knowledge_base_row_to_dict(row) if row else None
+
+
+def get_first_script_knowledge_base(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_knowledge_bases ORDER BY created_at ASC LIMIT 1").fetchone()
+  return _script_knowledge_base_row_to_dict(row) if row else None
+
+
+def create_script_workspace(
+  conn: sqlite3.Connection,
+  title: str,
+  knowledge_base_id: str,
+  knowledge_base_snapshot: dict,
+) -> dict:
+  workspace_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO script_workspaces (
+      id,
+      title,
+      knowledge_base_id,
+      knowledge_base_snapshot,
+      current_step,
+      active_profile_id,
+      task,
+      selected_source,
+      source_options,
+      observations,
+      moments,
+      observation_variant_index,
+      moment_variant_index,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, 'task', '', '', '', '[]', '{}', '[]', 0, 0, ?, ?)
+    """,
+    (
+      workspace_id,
+      title,
+      knowledge_base_id,
+      _json_dumps(knowledge_base_snapshot),
+      timestamp,
+      timestamp,
+    ),
+  )
+  return get_script_workspace(conn, workspace_id)
+
+
+def list_script_workspaces(conn: sqlite3.Connection) -> list[dict]:
+  rows = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at ASC").fetchall()
+  return [_script_workspace_row_to_dict(row) for row in rows]
+
+
+def get_script_workspace(conn: sqlite3.Connection, workspace_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces WHERE id = ?", (workspace_id,)).fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def get_first_script_workspace(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at ASC LIMIT 1").fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def get_latest_script_workspace(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at DESC LIMIT 1").fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def update_script_workspace(conn: sqlite3.Connection, workspace_id: str, data: dict) -> Optional[dict]:
+  if not data:
+    return get_script_workspace(conn, workspace_id)
+
+  allowed = {
+    "title",
+    "knowledge_base_id",
+    "knowledge_base_snapshot",
+    "current_step",
+    "active_profile_id",
+    "task",
+    "selected_source",
+    "source_options",
+    "observations",
+    "moments",
+    "observation_variant_index",
+    "moment_variant_index",
+  }
+  json_fields = {"knowledge_base_snapshot", "source_options", "observations", "moments"}
+  updates = []
+  values: dict[str, Any] = {}
+  for key in allowed:
+    if key in data:
+      updates.append(f"{key} = :{key}")
+      values[key] = _json_dumps(data[key]) if key in json_fields else data[key]
+
+  if not updates:
+    return get_script_workspace(conn, workspace_id)
+
+  values["updated_at"] = _utc_now()
+  values["workspace_id"] = workspace_id
+  updates.append("updated_at = :updated_at")
+
+  conn.execute(f"UPDATE script_workspaces SET {', '.join(updates)} WHERE id = :workspace_id", values)
+  if conn.total_changes == 0:
+    return None
+  return get_script_workspace(conn, workspace_id)

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
+import json
 from pathlib import Path
 import sqlite3
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 from uuid import uuid4
 
 BASE_DIR = Path(__file__).resolve().parents[3]
@@ -85,6 +86,49 @@ def init_db() -> None:
       conn.execute("ALTER TABLE embed_assets ADD COLUMN context TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_results_slide_id ON slide_results(slide_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_embeds_slide_id ON embed_assets(slide_id)")
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS script_knowledge_bases (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      """
+    )
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS script_workspaces (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        knowledge_base_id TEXT NOT NULL,
+        knowledge_base_snapshot TEXT NOT NULL DEFAULT '{}',
+        current_step TEXT NOT NULL DEFAULT 'task',
+        active_profile_id TEXT NOT NULL DEFAULT '',
+        task TEXT NOT NULL DEFAULT '',
+        selected_source TEXT NOT NULL DEFAULT '',
+        source_options TEXT NOT NULL DEFAULT '[]',
+        observations TEXT NOT NULL DEFAULT '{}',
+        moments TEXT NOT NULL DEFAULT '[]',
+        observation_variant_index INTEGER NOT NULL DEFAULT 0,
+        moment_variant_index INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (knowledge_base_id) REFERENCES script_knowledge_bases(id) ON DELETE RESTRICT
+      )
+      """
+    )
+    if not _column_exists(conn, "script_workspaces", "knowledge_base_snapshot"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN knowledge_base_snapshot TEXT NOT NULL DEFAULT '{}'")
+    if not _column_exists(conn, "script_workspaces", "active_profile_id"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN active_profile_id TEXT NOT NULL DEFAULT ''")
+    if not _column_exists(conn, "script_workspaces", "observation_variant_index"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN observation_variant_index INTEGER NOT NULL DEFAULT 0")
+    if not _column_exists(conn, "script_workspaces", "moment_variant_index"):
+      conn.execute("ALTER TABLE script_workspaces ADD COLUMN moment_variant_index INTEGER NOT NULL DEFAULT 0")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_script_workspace_kb_id ON script_workspaces(knowledge_base_id)")
     conn.commit()
   finally:
     conn.execute("PRAGMA foreign_keys=ON;")
@@ -368,3 +412,179 @@ def update_embed(conn: sqlite3.Connection, embed_id: str, data: dict) -> Optiona
   if conn.total_changes == 0:
     return None
   return get_embed(conn, embed_id)
+
+
+def _json_dumps(value: Any) -> str:
+  return json.dumps(value, ensure_ascii=True)
+
+
+def _json_loads(value: str, fallback: Any) -> Any:
+  if not value:
+    return fallback
+  try:
+    return json.loads(value)
+  except json.JSONDecodeError:
+    return fallback
+
+
+def _normalize_script_observations(value: Any) -> dict:
+  if not isinstance(value, dict):
+    return {"perilaku": [], "emosi": [], "situasi": []}
+  return {
+    "perilaku": value.get("perilaku") if isinstance(value.get("perilaku"), list) else [],
+    "emosi": value.get("emosi") if isinstance(value.get("emosi"), list) else [],
+    "situasi": value.get("situasi") if isinstance(value.get("situasi"), list) else [],
+  }
+
+
+def _script_workspace_row_to_dict(row: sqlite3.Row) -> dict:
+  if not row:
+    return {}
+  data = dict(row)
+  data["source_options"] = _json_loads(data.get("source_options", "[]"), [])
+  data["observations"] = _normalize_script_observations(_json_loads(data.get("observations", "{}"), {}))
+  data["moments"] = _json_loads(data.get("moments", "[]"), [])
+  data["knowledge_base_snapshot"] = _json_loads(data.get("knowledge_base_snapshot", "{}"), {})
+  return data
+
+
+def _script_knowledge_base_row_to_dict(row: sqlite3.Row) -> dict:
+  if not row:
+    return {}
+  data = dict(row)
+  data["summary"] = _json_loads(data.get("summary", "{}"), {})
+  data["data"] = _json_loads(data.get("data", "{}"), {})
+  return data
+
+
+def create_script_knowledge_base(
+  conn: sqlite3.Connection,
+  title: str,
+  summary: dict,
+  data: dict,
+) -> dict:
+  knowledge_base_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO script_knowledge_bases (id, title, summary, data, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """,
+    (knowledge_base_id, title, _json_dumps(summary), _json_dumps(data), timestamp, timestamp),
+  )
+  return get_script_knowledge_base(conn, knowledge_base_id)
+
+
+def list_script_knowledge_bases(conn: sqlite3.Connection) -> list[dict]:
+  rows = conn.execute("SELECT * FROM script_knowledge_bases ORDER BY created_at ASC").fetchall()
+  return [_script_knowledge_base_row_to_dict(row) for row in rows]
+
+
+def get_script_knowledge_base(conn: sqlite3.Connection, knowledge_base_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_knowledge_bases WHERE id = ?", (knowledge_base_id,)).fetchone()
+  return _script_knowledge_base_row_to_dict(row) if row else None
+
+
+def get_first_script_knowledge_base(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_knowledge_bases ORDER BY created_at ASC LIMIT 1").fetchone()
+  return _script_knowledge_base_row_to_dict(row) if row else None
+
+
+def create_script_workspace(
+  conn: sqlite3.Connection,
+  title: str,
+  knowledge_base_id: str,
+  knowledge_base_snapshot: dict,
+) -> dict:
+  workspace_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO script_workspaces (
+      id,
+      title,
+      knowledge_base_id,
+      knowledge_base_snapshot,
+      current_step,
+      active_profile_id,
+      task,
+      selected_source,
+      source_options,
+      observations,
+      moments,
+      observation_variant_index,
+      moment_variant_index,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, 'task', '', '', '', '[]', '{}', '[]', 0, 0, ?, ?)
+    """,
+    (
+      workspace_id,
+      title,
+      knowledge_base_id,
+      _json_dumps(knowledge_base_snapshot),
+      timestamp,
+      timestamp,
+    ),
+  )
+  return get_script_workspace(conn, workspace_id)
+
+
+def list_script_workspaces(conn: sqlite3.Connection) -> list[dict]:
+  rows = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at ASC").fetchall()
+  return [_script_workspace_row_to_dict(row) for row in rows]
+
+
+def get_script_workspace(conn: sqlite3.Connection, workspace_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces WHERE id = ?", (workspace_id,)).fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def get_first_script_workspace(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at ASC LIMIT 1").fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def get_latest_script_workspace(conn: sqlite3.Connection) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM script_workspaces ORDER BY created_at DESC LIMIT 1").fetchone()
+  return _script_workspace_row_to_dict(row) if row else None
+
+
+def update_script_workspace(conn: sqlite3.Connection, workspace_id: str, data: dict) -> Optional[dict]:
+  if not data:
+    return get_script_workspace(conn, workspace_id)
+
+  allowed = {
+    "title",
+    "knowledge_base_id",
+    "knowledge_base_snapshot",
+    "current_step",
+    "active_profile_id",
+    "task",
+    "selected_source",
+    "source_options",
+    "observations",
+    "moments",
+    "observation_variant_index",
+    "moment_variant_index",
+  }
+  json_fields = {"knowledge_base_snapshot", "source_options", "observations", "moments"}
+  updates = []
+  values: dict[str, Any] = {}
+  for key in allowed:
+    if key in data:
+      updates.append(f"{key} = :{key}")
+      values[key] = _json_dumps(data[key]) if key in json_fields else data[key]
+
+  if not updates:
+    return get_script_workspace(conn, workspace_id)
+
+  values["updated_at"] = _utc_now()
+  values["workspace_id"] = workspace_id
+  updates.append("updated_at = :updated_at")
+
+  conn.execute(f"UPDATE script_workspaces SET {', '.join(updates)} WHERE id = :workspace_id", values)
+  if conn.total_changes == 0:
+    return None
+  return get_script_workspace(conn, workspace_id)

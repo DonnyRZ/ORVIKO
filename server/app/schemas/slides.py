@@ -28,3 +28,33 @@ class GenerateRequest(BaseModel):
 class EmbedUpdateRequest(BaseModel):
   label: Optional[str] = Field(None, max_length=120)
   context: Optional[str] = Field(None, max_length=500)
+
+
+class SlideHistoryItem(BaseModel):
+  id: str
+  title: str
+  text_preview: str
+  aspect_ratio: str
+  result_count: int
+  embed_count: int
+  thumbnail_result_id: Optional[str] = None
+  thumbnail_url: Optional[str] = None
+  updated_at: str
+
+
+class SlideHistoryResponse(BaseModel):
+  history: list[SlideHistoryItem] = Field(default_factory=list)
+
+
+class SlideGalleryItem(BaseModel):
+  id: str
+  slide_id: str
+  slide_title: str
+  aspect_ratio: str
+  image_url: str
+  created_at: str
+  updated_at: str
+
+
+class SlideGalleryResponse(BaseModel):
+  gallery: list[SlideGalleryItem] = Field(default_factory=list)

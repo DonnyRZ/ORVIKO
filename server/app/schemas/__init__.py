@@ -1,0 +1,43 @@
+from app.schemas.script import (
+  ScriptGenerationRequest,
+  ScriptHistoryItem,
+  ScriptHistoryResponse,
+  ScriptKnowledgeBaseSummary,
+  ScriptMomentsUpdateRequest,
+  ScriptObservations,
+  ScriptObservationsUpdateRequest,
+  ScriptSourceOption,
+  ScriptSourceSelectionRequest,
+  ScriptTaskUpdateRequest,
+  ScriptWorkspace,
+  ScriptWorkspaceResponse,
+)
+from app.schemas.slides import (
+  EmbedUpdateRequest,
+  GenerateRequest,
+  SlideCreateRequest,
+  SlideHistoryItem,
+  SlideHistoryResponse,
+  SlideUpdateRequest,
+)
+
+__all__ = [
+  "EmbedUpdateRequest",
+  "GenerateRequest",
+  "ScriptGenerationRequest",
+  "ScriptHistoryItem",
+  "ScriptHistoryResponse",
+  "ScriptKnowledgeBaseSummary",
+  "ScriptMomentsUpdateRequest",
+  "ScriptObservations",
+  "ScriptObservationsUpdateRequest",
+  "ScriptSourceOption",
+  "ScriptSourceSelectionRequest",
+  "ScriptTaskUpdateRequest",
+  "ScriptWorkspace",
+  "ScriptWorkspaceResponse",
+  "SlideCreateRequest",
+  "SlideHistoryItem",
+  "SlideHistoryResponse",
+  "SlideUpdateRequest",
+]

@@ -91,7 +91,7 @@ export function CheckoutPage() {
           <Link href={'/' as Route} className="btn btn-ghost">
             Kembali ke landing
           </Link>
-          <a href="mailto:avvkun@gmail.com" className="btn btn-outline">
+          <a href="mailto:rizki@orviko.net" className="btn btn-outline">
             Email langsung
           </a>
         </div>

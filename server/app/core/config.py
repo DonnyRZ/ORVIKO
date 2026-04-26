@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     env="IMAGE_SYSTEM_PROMPT",
   )
   system_prompt: str = Field("", env="SYSTEM_PROMPT")
+  google_client_id: str = Field("", env="GOOGLE_CLIENT_ID")
+  google_client_secret: str = Field("", env="GOOGLE_CLIENT_SECRET")
+  google_redirect_uri: str = Field("", env="GOOGLE_REDIRECT_URI")
+  frontend_base_url: str = Field("http://localhost:3000", env="FRONTEND_BASE_URL")
   cors_allowed_origins: str = Field(
     "http://localhost:3000,http://127.0.0.1:3000",
     env="CORS_ALLOWED_ORIGINS",

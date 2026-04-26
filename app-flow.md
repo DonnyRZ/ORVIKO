@@ -1,4 +1,4 @@
-# ODIN - TikTok Slide: App Flow (User Journey)
+# ORVIKO - TikTok Slide: App Flow (User Journey)
 
 This document describes the step-by-step app flow from input to output.
 It follows how a user would actually use the app from start to finish.

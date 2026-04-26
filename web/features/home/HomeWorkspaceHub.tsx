@@ -231,15 +231,15 @@ export function HomeWorkspaceHub() {
     <main className="dashboard-shell">
       <aside className="dashboard-sidebar">
         <div className="dashboard-brand">
-          <img src="/branding/logo-odin.png" alt="Logo ODIN" className="dashboard-brand__mark" />
+          <img src="/branding/logo-orviko.png" alt="Logo ORVIKO" className="dashboard-brand__mark" />
           <div className="dashboard-brand__copy">
-            <span className="dashboard-brand__name display-font">ODIN</span>
+            <span className="dashboard-brand__name display-font">ORVIKO</span>
             <span className="dashboard-brand__label">Creative OS</span>
           </div>
         </div>
 
         <nav className="dashboard-nav" aria-label="Navigasi utama">
-          <Link href={'/' as Route} className="dashboard-nav__item is-active">
+          <Link href={'/home' as Route} className="dashboard-nav__item is-active">
             <Icon name="dashboard" />
             <span>Dashboard</span>
           </Link>

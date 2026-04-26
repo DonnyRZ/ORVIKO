@@ -1,4 +1,4 @@
-# ODIN - TikTok Slide
+# ORVIKO - TikTok Slide
 
 Workspace to generate 9:16 TikTok slide images with a three‑panel UI and a Python backend.
 
@@ -29,7 +29,7 @@ Workspace to generate 9:16 TikTok slide images with a three‑panel UI and a Pyt
 From repo root:
 
 ```powershell
-cd "ODIN - Tiktok Slide\server"
+cd "ORVIKO - Tiktok Slide\server"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
@@ -43,7 +43,7 @@ Backend health check:
 From repo root:
 
 ```powershell
-cd "ODIN - Tiktok Slide\web"
+cd "ORVIKO - Tiktok Slide\web"
 npm install
 npm run dev
 ```

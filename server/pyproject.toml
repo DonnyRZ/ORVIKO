@@ -3,10 +3,10 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "odin-tiktok-slide-server"
+name = "orviko-tiktok-slide-server"
 version = "0.1.0"
-description = "FastAPI backend for ODIN TikTok Slide"
-authors = [{ name = "ODIN Team" }]
+description = "FastAPI backend for ORVIKO TikTok Slide"
+authors = [{ name = "ORVIKO Team" }]
 dependencies = [
     "fastapi>=0.115.0,<0.116.0",
     "uvicorn[standard]>=0.30.0,<0.31.0",

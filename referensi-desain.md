@@ -1,6 +1,6 @@
-# Referensi Desain - ODIN - Tiktok Slide
+# Referensi Desain - ORVIKO - Tiktok Slide
 
-Dokumen ini merangkum referensi desain dari proyek ODIN - Main dan dijadikan acuan visual untuk ODIN - Tiktok Slide.
+Dokumen ini merangkum referensi desain dari proyek ORVIKO - Main dan dijadikan acuan visual untuk ORVIKO - Tiktok Slide.
 
 ## Sumber referensi
 - web/app/home/onboarding.css

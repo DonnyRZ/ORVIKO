@@ -40,7 +40,7 @@ const sections = [
   {
     title: 'Kontak',
     body:
-      'Untuk pertanyaan terkait layanan, pengguna dapat menghubungi ORVIKO melalui email di avvkun@gmail.com.',
+      'Untuk pertanyaan terkait layanan, pengguna dapat menghubungi ORVIKO melalui email di rizki@orviko.net.',
   },
 ]
 
@@ -75,7 +75,7 @@ export function TermsPage() {
         </p>
         <div className="legal-meta">
           <span>Terakhir diperbarui: 26 April 2026</span>
-          <a href="mailto:avvkun@gmail.com">Kontak: avvkun@gmail.com</a>
+          <a href="mailto:rizki@orviko.net">Kontak: rizki@orviko.net</a>
         </div>
       </section>
 
@@ -97,8 +97,8 @@ export function TermsPage() {
             bawah ini.
           </p>
         </div>
-        <a href="mailto:avvkun@gmail.com" className="btn btn-primary btn-large">
-          avvkun@gmail.com
+        <a href="mailto:rizki@orviko.net" className="btn btn-primary btn-large">
+          rizki@orviko.net
         </a>
       </section>
     </main>

@@ -3,6 +3,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
+import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
 
 const scriptBenefits = [
   'Belajar dari script yang kamu upload agar output baru terasa tetap satu suara dengan gayamu.',
@@ -247,6 +248,8 @@ export function LandingPage() {
           </a>
         </div>
       </section>
+
+      <SiteInfoFooter />
     </main>
   )
 }

@@ -3,6 +3,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
 
 const planMap = {
   starter: 'Starter',
@@ -105,6 +106,8 @@ export function PaymentPage() {
           ke halaman selesai atau payment gateway asli.
         </p>
       </section>
+
+      <SiteInfoFooter />
     </main>
   )
 }

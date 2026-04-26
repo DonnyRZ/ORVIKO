@@ -1,5 +1,6 @@
 import type { Route } from 'next'
 import Link from 'next/link'
+import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
 
 type Plan = {
   slug: string
@@ -135,6 +136,8 @@ export function CheckoutPage() {
           belum tersimpan sebagai transaksi final dan belum terhubung ke payment gateway asli.
         </p>
       </section>
+
+      <SiteInfoFooter />
     </main>
   )
 }

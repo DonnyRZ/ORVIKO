@@ -1,5 +1,5 @@
-import { HomeWorkspaceHub } from '@/features/home/HomeWorkspaceHub'
+import { LandingPage } from '@/features/landing/LandingPage'
 
-export default function HomePage() {
-  return <HomeWorkspaceHub />
+export default function LandingRoutePage() {
+  return <LandingPage />
 }

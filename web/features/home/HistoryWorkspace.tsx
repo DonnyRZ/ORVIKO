@@ -126,7 +126,7 @@ export function HistoryWorkspace() {
           <p className="section-eyebrow">Histori</p>
           <h1 className="history-page__title display-font">Histori Project</h1>
         </div>
-        <Link href={'/' as Route} className="btn btn-ghost">
+        <Link href={'/home' as Route} className="btn btn-ghost">
           Kembali ke dashboard
         </Link>
       </header>

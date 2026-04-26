@@ -1,10 +1,10 @@
 # Backend setup (FastAPI + SQLite)
 
-This project uses a Python backend (FastAPI) with SQLite, aligned with ODIN - Main.
+This project uses a Python backend (FastAPI) with SQLite, aligned with ORVIKO - Main.
 
 ## Create venv
 
-From `ODIN - Tiktok Slide`:
+From `ORVIKO - Tiktok Slide`:
 
 ```
 python -m venv server\.venv
@@ -12,7 +12,7 @@ python -m venv server\.venv
 
 ## Install dependencies
 
-From `ODIN - Tiktok Slide/server`:
+From `ORVIKO - Tiktok Slide/server`:
 
 ```
 .\.venv\Scripts\python -m pip install -U pip
@@ -21,7 +21,7 @@ From `ODIN - Tiktok Slide/server`:
 
 ## Run the server
 
-From `ODIN - Tiktok Slide/server`:
+From `ORVIKO - Tiktok Slide/server`:
 
 ```
 .\.venv\Scripts\uvicorn uvicorn_app:app --reload
@@ -47,7 +47,7 @@ Server runs on `http://localhost:8000`.
 Files are stored under:
 
 ```
-ODIN - Tiktok Slide/data
+ORVIKO - Tiktok Slide/data
 ```
 
 - Embeds: `data/embeds`

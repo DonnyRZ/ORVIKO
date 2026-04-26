@@ -1,10 +1,10 @@
-# ODIN - TikTok Slide: Dokumentasi Fitur Lengkap
+# ORVIKO - TikTok Slide: Dokumentasi Fitur Lengkap
 
-Dokumen ini menjelaskan fitur ODIN - TikTok Slide secara menyeluruh berdasarkan implementasi saat ini di frontend (`web/`) dan backend (`server/`).
+Dokumen ini menjelaskan fitur ORVIKO - TikTok Slide secara menyeluruh berdasarkan implementasi saat ini di frontend (`web/`) dan backend (`server/`).
 
 ## 1. Ringkasan Produk
 
-ODIN - TikTok Slide adalah workspace untuk membuat gambar slide vertikal 9:16 (1080x1920) berbasis AI dengan konsep 3 panel:
+ORVIKO - TikTok Slide adalah workspace untuk membuat gambar slide vertikal 9:16 (1080x1920) berbasis AI dengan konsep 3 panel:
 - Panel kiri: manajemen slide dan input konten.
 - Panel tengah: preview hasil slide aktif.
 - Panel kanan: daftar hasil generasi untuk slide yang sedang dipreview.
@@ -289,7 +289,7 @@ Frontend:
 ## 9. Struktur Direktori yang Relevan
 
 ```text
-ODIN - Tiktok Slide/
+ORVIKO - Tiktok Slide/
 |- web/
 |  |- app/
 |  |  |- page.tsx

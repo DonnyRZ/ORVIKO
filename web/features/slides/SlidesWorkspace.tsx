@@ -487,16 +487,16 @@ export function SlidesWorkspace() {
         <div className="brand">
           <div className="brand-mark">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/branding/logo-odin.png" alt="Logo ODIN" className="brand-mark__image" />
+            <img src="/branding/logo-orviko.png" alt="Logo ORVIKO" className="brand-mark__image" />
           </div>
           <div className="brand-copy">
-            <p className="brand-title display-font">ODIN Slide</p>
+            <p className="brand-title display-font">ORVIKO Slide</p>
             <p className="brand-subtitle">Workspace untuk satu gambar slide</p>
           </div>
           <span className="tag tag-accent">{activeAspectRatio}</span>
         </div>
         <div className="header-actions">
-          <Link href={'/' as Route} className="btn btn-ghost">
+          <Link href={'/home' as Route} className="btn btn-ghost">
             Kembali ke home
           </Link>
           <Link href={'/script' as Route} className="btn">

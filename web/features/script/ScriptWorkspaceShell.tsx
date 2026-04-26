@@ -499,16 +499,16 @@ export function ScriptWorkspaceShell() {
         <div className="brand">
           <div className="brand-mark">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/branding/logo-odin.png" alt="Logo ODIN" className="brand-mark__image" />
+            <img src="/branding/logo-orviko.png" alt="Logo ORVIKO" className="brand-mark__image" />
           </div>
           <div className="brand-copy">
-            <p className="brand-title display-font">ODIN Script</p>
+            <p className="brand-title display-font">ORVIKO Script</p>
             <p className="brand-subtitle">Workspace asisten dari task sampai momen</p>
           </div>
           <span className="tag tag-accent">Mode asisten</span>
         </div>
         <div className="header-actions">
-          <Link href={'/' as Route} className="btn btn-ghost">
+          <Link href={'/home' as Route} className="btn btn-ghost">
             Kembali ke home
           </Link>
           <Link href={'/slides' as Route} className="btn">

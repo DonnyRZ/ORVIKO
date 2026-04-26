@@ -12,7 +12,7 @@ export function ContactPage() {
   const contactHref = useMemo(() => {
     const subject = encodeURIComponent(`ORVIKO - Kontak dari ${name || 'Website'}`)
     const body = encodeURIComponent(`Nama: ${name || '-'}\nEmail: ${email || '-'}\n\nPesan:\n${message || '-'}`)
-    return `mailto:avvkun@gmail.com?subject=${subject}&body=${body}`
+    return `mailto:rizki@orviko.net?subject=${subject}&body=${body}`
   }, [email, message, name])
 
   return (
@@ -48,7 +48,7 @@ export function ContactPage() {
         <article className="legal-card">
           <p className="landing-kicker">Informasi</p>
           <h2 className="display-font">Kontak aktif saat ini</h2>
-          <p>Email utama yang digunakan untuk komunikasi layanan dan operasional adalah `avvkun@gmail.com`.</p>
+          <p>Email utama yang digunakan untuk komunikasi layanan dan operasional adalah `rizki@orviko.net`.</p>
         </article>
 
         <form className="contact-form-card">
@@ -81,7 +81,7 @@ export function ContactPage() {
             <a href={contactHref} className="btn btn-primary btn-large">
               Kirim via Email
             </a>
-            <p>Tujuan email: avvkun@gmail.com</p>
+            <p>Tujuan email: rizki@orviko.net</p>
           </div>
         </form>
       </section>

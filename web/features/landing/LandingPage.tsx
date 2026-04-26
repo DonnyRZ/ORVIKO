@@ -243,7 +243,7 @@ export function LandingPage() {
           <Link href={'/checkout' as Route} className="btn btn-primary btn-large">
             Lihat Paket
           </Link>
-          <a className="btn btn-ghost btn-large" href="mailto:avvkun@gmail.com">
+          <a className="btn btn-ghost btn-large" href="mailto:rizki@orviko.net">
             Hubungi via Email
           </a>
         </div>

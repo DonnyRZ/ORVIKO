@@ -2,14 +2,18 @@ import type { Route } from 'next'
 import Link from 'next/link'
 
 type Plan = {
+  slug: string
   name: string
   price: string
   tag: string
   features: string[]
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
+
 const plans: Plan[] = [
   {
+    slug: 'starter',
     name: 'Starter',
     price: 'Rp 79.000',
     tag: 'Untuk mulai membangun gaya script',
@@ -28,6 +32,7 @@ const plans: Plan[] = [
     ],
   },
   {
+    slug: 'creator',
     name: 'Creator',
     price: 'Rp 199.000',
     tag: 'Untuk kreator yang sudah rutin produksi',
@@ -46,6 +51,7 @@ const plans: Plan[] = [
     ],
   },
   {
+    slug: 'pro',
     name: 'Pro',
     price: 'Rp 499.000',
     tag: 'Untuk workflow yang lebih serius',
@@ -65,13 +71,8 @@ const plans: Plan[] = [
   },
 ]
 
-const buildMailto = (plan: Plan) => {
-  const subject = encodeURIComponent(`ORVIKO - Saya tertarik paket ${plan.name}`)
-  const body = encodeURIComponent(
-    `Halo,\n\nSaya tertarik dengan paket ${plan.name} (${plan.price}).\nMohon info langkah berikutnya untuk aktivasi.\n\nTerima kasih.`
-  )
-  return `mailto:avvkun@gmail.com?subject=${subject}&body=${body}`
-}
+const buildLoginUrl = (plan: Plan) =>
+  `${API_BASE_URL}/auth/google/login?plan=${encodeURIComponent(plan.slug)}&price=${encodeURIComponent(plan.price)}`
 
 export function CheckoutPage() {
   return (
@@ -99,8 +100,8 @@ export function CheckoutPage() {
         <p className="landing-kicker">Pilih paket</p>
         <h1 className="landing-title display-font">Mulai dari paket yang paling pas dengan ritme produksi kontenmu.</h1>
         <p className="landing-subtitle">
-          Untuk tahap ini, checkout belum terhubung ke payment gateway. Setelah pilih paket, kamu akan diarahkan
-          ke email agar proses aktivasi awal bisa dibantu manual.
+          Untuk tahap ini, setelah pilih paket kamu akan login dengan Google dulu, lalu diarahkan ke halaman
+          payment dummy untuk mematangkan flow sebelum payment gateway asli diintegrasikan.
         </p>
       </section>
 
@@ -121,7 +122,7 @@ export function CheckoutPage() {
               ))}
             </ul>
 
-            <a href={buildMailto(plan)} className={`btn ${index === 1 ? 'btn-primary' : 'btn-outline'} btn-large`}>
+            <a href={buildLoginUrl(plan)} className={`btn ${index === 1 ? 'btn-primary' : 'btn-outline'} btn-large`}>
               Pilih {plan.name}
             </a>
           </article>
@@ -130,8 +131,8 @@ export function CheckoutPage() {
 
       <section className="checkout-note">
         <p>
-          Aktivasi tahap awal dibantu lewat email <strong>avvkun@gmail.com</strong>. Jadi alurnya masih landing
-          page ke checkout, lalu lanjut komunikasi manual sebelum tahap pembayaran penuh diintegrasikan.
+          Flow saat ini adalah landing page ke checkout, login Google, lalu payment dummy. Status pembayaran
+          belum tersimpan sebagai transaksi final dan belum terhubung ke payment gateway asli.
         </p>
       </section>
     </main>

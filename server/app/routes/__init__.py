@@ -1,3 +1,3 @@
-from app.routes import script, slides
+from app.routes import auth, script, slides
 
-__all__ = ["script", "slides"]
+__all__ = ["auth", "script", "slides"]

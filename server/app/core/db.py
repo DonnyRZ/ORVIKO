@@ -129,6 +129,22 @@ def init_db() -> None:
     if not _column_exists(conn, "script_workspaces", "moment_variant_index"):
       conn.execute("ALTER TABLE script_workspaces ADD COLUMN moment_variant_index INTEGER NOT NULL DEFAULT 0")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_script_workspace_kb_id ON script_workspaces(knowledge_base_id)")
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        google_sub TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL UNIQUE,
+        picture TEXT NOT NULL DEFAULT '',
+        auth_provider TEXT NOT NULL DEFAULT 'google',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     conn.commit()
   finally:
     conn.execute("PRAGMA foreign_keys=ON;")
@@ -588,3 +604,74 @@ def update_script_workspace(conn: sqlite3.Connection, workspace_id: str, data: d
   if conn.total_changes == 0:
     return None
   return get_script_workspace(conn, workspace_id)
+
+
+def get_user_by_google_sub(conn: sqlite3.Connection, google_sub: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM users WHERE google_sub = ?", (google_sub,)).fetchone()
+  return dict(row) if row else None
+
+
+def create_user(
+  conn: sqlite3.Connection,
+  google_sub: str,
+  name: str,
+  email: str,
+  picture: str,
+  auth_provider: str = "google",
+) -> dict:
+  user_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO users (id, google_sub, name, email, picture, auth_provider, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+    (user_id, google_sub, name, email, picture, auth_provider, timestamp, timestamp),
+  )
+  row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+  return dict(row) if row else {}
+
+
+def update_user_by_google_sub(
+  conn: sqlite3.Connection,
+  google_sub: str,
+  *,
+  name: str,
+  email: str,
+  picture: str,
+) -> Optional[dict]:
+  conn.execute(
+    """
+    UPDATE users
+    SET name = ?, email = ?, picture = ?, updated_at = ?
+    WHERE google_sub = ?
+    """,
+    (name, email, picture, _utc_now(), google_sub),
+  )
+  return get_user_by_google_sub(conn, google_sub)
+
+
+def upsert_google_user(
+  conn: sqlite3.Connection,
+  *,
+  google_sub: str,
+  name: str,
+  email: str,
+  picture: str,
+) -> dict:
+  existing = get_user_by_google_sub(conn, google_sub)
+  if existing:
+    return update_user_by_google_sub(
+      conn,
+      google_sub,
+      name=name,
+      email=email,
+      picture=picture,
+    ) or existing
+  return create_user(
+    conn,
+    google_sub=google_sub,
+    name=name,
+    email=email,
+    picture=picture,
+  )

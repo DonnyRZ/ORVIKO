@@ -9,15 +9,15 @@ import requests
 from fastapi import HTTPException
 
 from app.core.config import get_settings
-from app.core.db import (
+from app.db.connection import db_connection
+from app.db.repositories.payments import (
   create_payment,
-  db_connection,
   get_payment,
   get_payment_by_order_id,
-  get_user_by_id,
   update_payment_snap_details,
   update_payment_status,
 )
+from app.db.repositories.users import get_user_by_id
 
 PLAN_CATALOG = {
   "starter": {"name": "Starter", "gross_amount": 79000},

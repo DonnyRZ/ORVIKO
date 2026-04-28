@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.db import init_db
+from app.db.migrations import init_db
 from app.routes.auth import router as auth_router
 from app.routes.payments import router as payments_router
 from app.routes.script import router as script_router

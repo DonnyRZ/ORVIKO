@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from app.core.db import (
-  db_connection,
+from app.db.connection import db_connection
+from app.db.repositories.scripts import (
   get_script_knowledge_base,
   list_script_workspaces,
   update_script_workspace,

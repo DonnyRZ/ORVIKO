@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.db import init_db
 from app.routes.auth import router as auth_router
+from app.routes.payments import router as payments_router
 from app.routes.script import router as script_router
 from app.routes.slides import router as slides_router
 from app.services.script_service import ensure_script_workspace_seeded
@@ -36,3 +37,4 @@ def health() -> dict:
 app.include_router(slides_router)
 app.include_router(script_router)
 app.include_router(auth_router)
+app.include_router(payments_router)

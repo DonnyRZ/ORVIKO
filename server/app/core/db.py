@@ -145,6 +145,28 @@ def init_db() -> None:
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS payments (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE,
+        plan TEXT NOT NULL,
+        gross_amount INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'IDR',
+        status TEXT NOT NULL DEFAULT 'created',
+        snap_token TEXT NOT NULL DEFAULT '',
+        snap_redirect_url TEXT NOT NULL DEFAULT '',
+        midtrans_transaction_id TEXT NOT NULL DEFAULT '',
+        midtrans_order_id TEXT NOT NULL DEFAULT '',
+        raw_notification TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+      """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)")
     conn.commit()
   finally:
     conn.execute("PRAGMA foreign_keys=ON;")
@@ -611,6 +633,11 @@ def get_user_by_google_sub(conn: sqlite3.Connection, google_sub: str) -> Optiona
   return dict(row) if row else None
 
 
+def get_user_by_id(conn: sqlite3.Connection, user_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+  return dict(row) if row else None
+
+
 def create_user(
   conn: sqlite3.Connection,
   google_sub: str,
@@ -675,3 +702,92 @@ def upsert_google_user(
     email=email,
     picture=picture,
   )
+
+
+def create_payment(
+  conn: sqlite3.Connection,
+  *,
+  user_id: str,
+  order_id: str,
+  plan: str,
+  gross_amount: int,
+  currency: str = "IDR",
+  status: str = "created",
+) -> dict:
+  payment_id = uuid4().hex
+  timestamp = _utc_now()
+  conn.execute(
+    """
+    INSERT INTO payments (
+      id,
+      user_id,
+      order_id,
+      plan,
+      gross_amount,
+      currency,
+      status,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+    (payment_id, user_id, order_id, plan, gross_amount, currency, status, timestamp, timestamp),
+  )
+  row = conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+  return dict(row) if row else {}
+
+
+def get_payment(conn: sqlite3.Connection, payment_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+  return dict(row) if row else None
+
+
+def get_payment_by_order_id(conn: sqlite3.Connection, order_id: str) -> Optional[dict]:
+  row = conn.execute("SELECT * FROM payments WHERE order_id = ?", (order_id,)).fetchone()
+  return dict(row) if row else None
+
+
+def update_payment_snap_details(
+  conn: sqlite3.Connection,
+  payment_id: str,
+  *,
+  snap_token: str,
+  snap_redirect_url: str,
+  status: str = "pending",
+) -> Optional[dict]:
+  conn.execute(
+    """
+    UPDATE payments
+    SET snap_token = ?, snap_redirect_url = ?, status = ?, updated_at = ?
+    WHERE id = ?
+    """,
+    (snap_token, snap_redirect_url, status, _utc_now(), payment_id),
+  )
+  return get_payment(conn, payment_id)
+
+
+def update_payment_status(
+  conn: sqlite3.Connection,
+  payment_id: str,
+  *,
+  status: str,
+  midtrans_transaction_id: str = "",
+  midtrans_order_id: str = "",
+  raw_notification: dict[str, Any] | None = None,
+) -> Optional[dict]:
+  conn.execute(
+    """
+    UPDATE payments
+    SET status = ?, midtrans_transaction_id = ?, midtrans_order_id = ?, raw_notification = ?, updated_at = ?
+    WHERE id = ?
+    """,
+    (
+      status,
+      midtrans_transaction_id,
+      midtrans_order_id,
+      _json_dumps(raw_notification or {}),
+      _utc_now(),
+      payment_id,
+    ),
+  )
+  return get_payment(conn, payment_id)

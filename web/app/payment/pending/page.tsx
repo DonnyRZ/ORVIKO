@@ -1,5 +1,10 @@
+import { Suspense } from 'react'
 import { PaymentStatusPage } from '@/features/payment/PaymentStatusPage'
 
 export default function PaymentPendingPage() {
-  return <PaymentStatusPage tone="pending" />
+  return (
+    <Suspense fallback={null}>
+      <PaymentStatusPage tone="pending" />
+    </Suspense>
+  )
 }

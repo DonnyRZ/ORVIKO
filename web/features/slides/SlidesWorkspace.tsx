@@ -5,8 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
+import { buildApiUrl } from '@/lib/api'
 
 type EmbedAsset = {
   id: string
@@ -108,7 +107,7 @@ export function SlidesWorkspace() {
   const selectedResult =
     currentResults.find((card) => card.id === currentSlide.selected_result_id) ?? currentResults[0] ?? null
   const previewImageUrl =
-    selectedResult?.image_path ? `${API_BASE_URL}/results/${selectedResult.id}/image` : null
+    selectedResult?.image_path ? buildApiUrl(`/results/${selectedResult.id}/image`) : null
   const slideTitle = currentSlide.title.trim() || 'Slide tanpa judul'
   const slideFileLabel = currentSlide.title.trim() || 'slide'
   const activeAspectRatio = currentSlide.aspect_ratio || '9:16'
@@ -129,7 +128,7 @@ export function SlidesWorkspace() {
   }
 
   const downloadResultImage = async (resultId: string, filename: string) => {
-    const response = await fetch(`${API_BASE_URL}/results/${resultId}/image`)
+    const response = await fetch(buildApiUrl(`/results/${resultId}/image`))
     if (!response.ok) {
       throw new Error('Gagal download gambar.')
     }
@@ -138,7 +137,7 @@ export function SlidesWorkspace() {
   }
 
   const loadCurrentSlide = async () => {
-    const response = await fetch(routeSlideId ? `${API_BASE_URL}/slides/${routeSlideId}` : `${API_BASE_URL}/slides`)
+    const response = await fetch(routeSlideId ? buildApiUrl(`/slides/${routeSlideId}`) : buildApiUrl('/slides'))
     if (!response.ok) {
       throw new Error(`Gagal memuat slide (${response.status})`)
     }
@@ -266,7 +265,7 @@ export function SlidesWorkspace() {
 
   const persistSlide = async (payload: Partial<Slide>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`, {
+      const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -282,7 +281,7 @@ export function SlidesWorkspace() {
   }
 
   const refreshSlide = async () => {
-    const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`)
+    const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}`))
     if (!response.ok) {
       throw new Error('Gagal memperbarui slide.')
     }
@@ -295,7 +294,7 @@ export function SlidesWorkspace() {
     if (!confirmed) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}`, {
+      const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}`), {
         method: 'DELETE',
       })
       if (!response.ok) {
@@ -330,7 +329,7 @@ export function SlidesWorkspace() {
         formData.append('file', file)
         formData.append('label', file.name)
         formData.append('name', file.name)
-        const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/embeds`, {
+        const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}/embeds`), {
           method: 'POST',
           body: formData,
         })
@@ -346,7 +345,7 @@ export function SlidesWorkspace() {
 
   const handleEmbedDelete = async (embedId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/embeds/${embedId}`, {
+      const response = await fetch(buildApiUrl(`/embeds/${embedId}`), {
         method: 'DELETE',
       })
       if (!response.ok) {
@@ -360,7 +359,7 @@ export function SlidesWorkspace() {
 
   const handleEmbedUpdate = async (embedId: string, payload: { label?: string; context?: string }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/embeds/${embedId}`, {
+      const response = await fetch(buildApiUrl(`/embeds/${embedId}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -379,7 +378,7 @@ export function SlidesWorkspace() {
     setIsGenerating(true)
     setGenerationError(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/generate`, {
+      const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}/generate`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: currentSlide.quantity }),
@@ -421,7 +420,7 @@ export function SlidesWorkspace() {
 
   const handleSelectResult = async (resultId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/slides/${currentSlide.id}/results/${resultId}/select`, {
+      const response = await fetch(buildApiUrl(`/slides/${currentSlide.id}/results/${resultId}/select`), {
         method: 'POST',
       })
       if (!response.ok) {
@@ -469,7 +468,7 @@ export function SlidesWorkspace() {
     const confirmed = window.confirm('Hapus result yang dihasilkan ini?')
     if (!confirmed) return
     try {
-      const response = await fetch(`${API_BASE_URL}/results/${resultId}`, {
+      const response = await fetch(buildApiUrl(`/results/${resultId}`), {
         method: 'DELETE',
       })
       if (!response.ok) {
@@ -568,7 +567,7 @@ export function SlidesWorkspace() {
                     <div key={asset.id} className="embed-item" aria-label={asset.name}>
                       <div className="embed-thumb">
                         <img
-                          src={`${API_BASE_URL}/embeds/${asset.id}/file`}
+                          src={buildApiUrl(`/embeds/${asset.id}/file`)}
                           alt={asset.name}
                           className="embed-thumb__image"
                         />
@@ -785,7 +784,7 @@ export function SlidesWorkspace() {
               {currentResults.length ? (
                 currentResults.map((card) => {
                   const isSelected = card.id === currentSlide.selected_result_id
-                  const imageUrl = card.image_path ? `${API_BASE_URL}/results/${card.id}/image` : null
+                  const imageUrl = card.image_path ? buildApiUrl(`/results/${card.id}/image`) : null
 
                   return (
                     <article

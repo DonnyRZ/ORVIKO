@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { buildApiUrl } from '@/lib/api'
 
 type StatusTone = 'success' | 'pending' | 'failed'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
 
 const copyMap: Record<StatusTone, { label: string; title: string; body: string }> = {
   success: {
@@ -45,7 +44,7 @@ export function PaymentStatusPage({ tone }: { tone: StatusTone }) {
     let active = true
     const loadStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/payments/${paymentId}`)
+        const response = await fetch(buildApiUrl(`/payments/${paymentId}`))
         if (!response.ok) {
           throw new Error('Gagal memuat status payment.')
         }

@@ -4,8 +4,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
+import { buildApiUrl } from '@/lib/api'
 
 type ScriptStep = 'task' | 'source' | 'observasi' | 'momen' | 'result'
 
@@ -166,7 +165,7 @@ export function ScriptWorkspaceShell() {
   }
 
   const requestJson = async <T,>(path: string, options?: RequestInit): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(buildApiUrl(path), {
       ...options,
       headers: {
         'Content-Type': 'application/json',

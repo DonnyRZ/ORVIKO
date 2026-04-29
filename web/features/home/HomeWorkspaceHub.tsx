@@ -4,8 +4,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
+import { buildApiUrl } from '@/lib/api'
 
 type SlideHistoryItem = {
   id: string
@@ -149,8 +148,8 @@ export function HomeWorkspaceHub() {
         setIsLoading(true)
         setError(null)
         const [scriptResponse, slideResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/script/history`),
-          fetch(`${API_BASE_URL}/slides/history`),
+          fetch(buildApiUrl('/script/history')),
+          fetch(buildApiUrl('/slides/history')),
         ])
 
         if (!scriptResponse.ok || !slideResponse.ok) {
@@ -207,7 +206,7 @@ export function HomeWorkspaceHub() {
       setIsStarting(kind)
       setError(null)
       const endpoint = kind === 'script' ? '/script/workspaces' : '/slides/workspace/reset'
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, { method: 'POST' })
+      const response = await fetch(buildApiUrl(endpoint), { method: 'POST' })
       if (!response.ok) {
         throw new Error(kind === 'script' ? 'Gagal membuat workspace script.' : 'Gagal membuat postingan gambar.')
       }

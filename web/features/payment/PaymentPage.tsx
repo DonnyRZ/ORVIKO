@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
+import { buildApiUrl } from '@/lib/api'
 
 const planMap = {
   starter: 'Starter',
@@ -12,7 +13,6 @@ const planMap = {
   pro: 'Pro',
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
 const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? ''
 
 declare global {
@@ -87,7 +87,7 @@ export function PaymentPage() {
       setPaymentError(null)
       setPaymentNotice(null)
 
-      const response = await fetch(`${API_BASE_URL}/payments/midtrans/create`, {
+      const response = await fetch(buildApiUrl('/payments/midtrans/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

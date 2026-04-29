@@ -1,7 +1,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
-import { buildAppPath } from '@/lib/api'
+import { buildAuthUrl } from '@/lib/api'
 
 type Plan = {
   slug: string
@@ -72,7 +72,7 @@ const plans: Plan[] = [
 ]
 
 const buildLoginUrl = (plan: Plan) =>
-  buildAppPath('/auth/google/login', {
+  buildAuthUrl('/auth/google/login', {
     plan: plan.slug,
     price: plan.price,
   })

@@ -7,14 +7,13 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import get_settings
-from app.core.db import (
-  DATA_DIR,
+from app.db.connection import DATA_DIR, db_connection
+from app.db.files import delete_file, save_embed_file, save_result_image
+from app.db.repositories.slides import (
   create_embed,
   create_result,
   create_slide,
-  db_connection,
   delete_embed,
-  delete_file,
   delete_result,
   delete_slide,
   get_embed,
@@ -25,8 +24,6 @@ from app.core.db import (
   list_result_paths,
   list_results,
   list_slides,
-  save_embed_file,
-  save_result_image,
   select_result,
   update_embed,
   update_slide,

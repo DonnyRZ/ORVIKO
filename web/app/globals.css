@@ -2398,6 +2398,10 @@ select {
   color: var(--muted);
 }
 
+.payment-panel__hint--error {
+  color: #b91c1c;
+}
+
 .payment-summary {
   display: grid;
   gap: 12px;

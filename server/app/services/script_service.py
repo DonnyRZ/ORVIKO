@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.db import (
+from app.db.connection import db_connection
+from app.db.repositories.scripts import (
   create_script_knowledge_base,
   create_script_workspace,
-  db_connection,
   get_first_script_knowledge_base,
   get_latest_script_workspace,
   get_script_knowledge_base,

@@ -3,8 +3,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
+import { buildApiUrl } from '@/lib/api'
 
 type SlideHistoryItem = {
   id: string
@@ -64,8 +63,8 @@ export function HistoryWorkspace() {
         setIsLoading(true)
         setError(null)
         const [scriptResponse, slideResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/script/history`),
-          fetch(`${API_BASE_URL}/slides/history`),
+          fetch(buildApiUrl('/script/history')),
+          fetch(buildApiUrl('/slides/history')),
         ])
 
         if (!scriptResponse.ok || !slideResponse.ok) {

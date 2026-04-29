@@ -1,6 +1,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
+import { buildAppPath } from '@/lib/api'
 
 type Plan = {
   slug: string
@@ -9,8 +10,6 @@ type Plan = {
   tag: string
   features: string[]
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000'
 
 const plans: Plan[] = [
   {
@@ -73,7 +72,10 @@ const plans: Plan[] = [
 ]
 
 const buildLoginUrl = (plan: Plan) =>
-  `${API_BASE_URL}/auth/google/login?plan=${encodeURIComponent(plan.slug)}&price=${encodeURIComponent(plan.price)}`
+  buildAppPath('/auth/google/login', {
+    plan: plan.slug,
+    price: plan.price,
+  })
 
 export function CheckoutPage() {
   return (

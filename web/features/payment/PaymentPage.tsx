@@ -1,9 +1,11 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { SiteInfoFooter } from '@/features/common/SiteInfoFooter'
+import { buildApiUrl } from '@/lib/api'
 
 const planMap = {
   starter: 'Starter',
@@ -11,13 +13,149 @@ const planMap = {
   pro: 'Pro',
 }
 
+const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ?? ''
+
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        options?: {
+          onSuccess?: (result: unknown) => void
+          onPending?: (result: unknown) => void
+          onError?: (result: unknown) => void
+          onClose?: () => void
+        }
+      ) => void
+    }
+  }
+}
+
 export function PaymentPage() {
   const searchParams = useSearchParams()
   const planSlug = searchParams.get('plan') ?? 'creator'
   const planName = planMap[planSlug as keyof typeof planMap] ?? 'Creator'
-  const price = searchParams.get('price') ?? 'Rp 199.000'
+  const priceLabel = searchParams.get('price') ?? 'Rp 199.000'
   const loginStatus = searchParams.get('login')
   const email = searchParams.get('email') ?? ''
+  const userId = searchParams.get('user_id') ?? ''
+  const [isPaying, setIsPaying] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null)
+  const [snapScriptUrl, setSnapScriptUrl] = useState<string | null>(null)
+
+  const grossAmount = useMemo(() => {
+    const digits = priceLabel.replace(/[^\d]/g, '')
+    return Number.parseInt(digits || '0', 10)
+  }, [priceLabel])
+
+  useEffect(() => {
+    if (!snapScriptUrl || !MIDTRANS_CLIENT_KEY) {
+      return
+    }
+
+    const existing = document.getElementById('midtrans-snap-script')
+    if (existing) {
+      return
+    }
+
+    const script = document.createElement('script')
+    script.id = 'midtrans-snap-script'
+    script.src = snapScriptUrl
+    script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY)
+    script.async = true
+    document.body.appendChild(script)
+
+    return () => {
+      script.remove()
+    }
+  }, [snapScriptUrl])
+
+  const handlePayNow = async () => {
+    if (!userId) {
+      setPaymentError('User login belum ditemukan. Ulangi login Google terlebih dahulu.')
+      return
+    }
+
+    if (!MIDTRANS_CLIENT_KEY) {
+      setPaymentError('Midtrans client key untuk frontend belum tersedia.')
+      return
+    }
+
+    try {
+      setIsPaying(true)
+      setPaymentError(null)
+      setPaymentNotice(null)
+
+      const response = await fetch(buildApiUrl('/payments/midtrans/create'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          plan: planSlug,
+          price: grossAmount,
+          email,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { detail?: string }
+        throw new Error(payload.detail || 'Gagal membuat transaksi Midtrans.')
+      }
+
+      const payload = (await response.json()) as {
+        payment_id: string
+        snap_token: string
+        redirect_url: string
+      }
+
+      const nextScriptUrl = payload.redirect_url.includes('sandbox')
+        ? 'https://app.sandbox.midtrans.com/snap/snap.js'
+        : 'https://app.midtrans.com/snap/snap.js'
+      setSnapScriptUrl(nextScriptUrl)
+
+      const payWithSnap = () => {
+        if (!window.snap) {
+          throw new Error('Snap Midtrans belum siap dimuat.')
+        }
+
+        window.snap.pay(payload.snap_token, {
+          onSuccess: () => {
+            window.location.href = `/payment/success?payment_id=${encodeURIComponent(payload.payment_id)}`
+          },
+          onPending: () => {
+            window.location.href = `/payment/pending?payment_id=${encodeURIComponent(payload.payment_id)}`
+          },
+          onError: () => {
+            window.location.href = `/payment/failed?payment_id=${encodeURIComponent(payload.payment_id)}`
+          },
+          onClose: () => {
+            setPaymentNotice('Pembayaran belum diselesaikan. Kamu bisa lanjutkan lagi kapan pun dari halaman ini.')
+          },
+        })
+      }
+
+      if (window.snap) {
+        payWithSnap()
+        return
+      }
+
+      const start = window.setInterval(() => {
+        if (window.snap) {
+          window.clearInterval(start)
+          payWithSnap()
+        }
+      }, 300)
+
+      window.setTimeout(() => {
+        window.clearInterval(start)
+      }, 10000)
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : 'Terjadi kesalahan saat memulai pembayaran.')
+    } finally {
+      setIsPaying(false)
+    }
+  }
 
   return (
     <main className="payment-page">
@@ -65,7 +203,7 @@ export function PaymentPage() {
           </div>
 
           <div className="payment-amount">
-            <strong>{price}</strong>
+            <strong>{priceLabel}</strong>
             <span>Pembayaran satu kali</span>
           </div>
 
@@ -76,7 +214,7 @@ export function PaymentPage() {
             </div>
             <div className="payment-summary__row">
               <span>Tagihan</span>
-              <strong>{price}</strong>
+              <strong>{priceLabel}</strong>
             </div>
             <div className="payment-summary__row">
               <span>Mode</span>
@@ -90,13 +228,20 @@ export function PaymentPage() {
             ) : null}
           </div>
 
-          <button type="button" className="btn btn-primary btn-large payment-panel__cta">
-            Bayar Dummy
+          <button
+            type="button"
+            className="btn btn-primary btn-large payment-panel__cta"
+            onClick={() => void handlePayNow()}
+            disabled={isPaying}
+          >
+            {isPaying ? 'Memulai pembayaran...' : 'Bayar Sekarang'}
           </button>
 
-          <p className="payment-panel__hint">
-            Tombol ini belum menjalankan transaksi apa pun. Ini hanya placeholder untuk membentuk pengalaman payment.
-          </p>
+          {paymentError ? <p className="payment-panel__hint payment-panel__hint--error">{paymentError}</p> : null}
+          {paymentNotice ? <p className="payment-panel__hint">{paymentNotice}</p> : null}
+          {!paymentError && !paymentNotice ? (
+            <p className="payment-panel__hint">Pembayaran akan dibuka melalui Midtrans Snap setelah transaksi dibuat.</p>
+          ) : null}
         </div>
       </section>
 

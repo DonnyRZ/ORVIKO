@@ -188,7 +188,10 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 
 Catatan penting:
 
-- `NEXT_PUBLIC_API_BASE_URL` dibaca saat build frontend
+- `NEXT_PUBLIC_API_BASE_URL` sekarang bersifat opsional
+- default frontend production sudah aman memakai same-origin path seperti `/auth/...`, `/payments/...`, `/script/...`, dan `/slides/...`
+- `NEXT_PUBLIC_API_BASE_URL` hanya perlu dipakai bila frontend memang harus bicara ke backend beda origin
+- bila dipakai, `NEXT_PUBLIC_API_BASE_URL` dibaca saat build frontend
 - karena frontend memakai static export, value ini bukan runtime env browser biasa
 
 ## Menjalankan Secara Lokal
@@ -260,6 +263,8 @@ Artinya:
 - `npm run build` menghasilkan output static di `web/out`
 - untuk production, frontend sebaiknya diserve oleh Nginx atau static file server
 - `next start` tidak cocok untuk production build project ini
+- entry HTML seperti `/`, `/checkout`, `/payment`, `/home`, `/script`, `/slides`, dan `/history` sebaiknya tidak di-cache terlalu agresif
+- fingerprinted asset seperti `/_next/static/*` justru aman untuk cache panjang
 
 ### Backend production
 
@@ -271,7 +276,78 @@ Contoh pendek:
 - Nginx untuk:
   - serve `web/out`
   - proxy route backend yang diperlukan
+  - memberi cache policy yang lebih lunak untuk HTML entry pages
 - SSL via Certbot
+
+### Route backend yang perlu diproxy di production
+
+Untuk flow ORVIKO saat ini, route berikut perlu dianggap same-origin dan diarahkan ke backend:
+
+- `/auth/`
+- `/payments/`
+- `/api/`
+- `/docs`
+- `/openapi.json`
+
+Ini penting supaya login Google dan payment dummy tidak bocor menjadi absolute URL yang rapuh di browser user.
+
+### Cache policy yang disarankan untuk Nginx
+
+Targetnya sederhana:
+
+- HTML entry pages cepat mengambil versi terbaru setelah deploy
+- asset build fingerprinted tetap cepat karena bisa di-cache lama
+
+Contoh arah konfigurasi:
+
+```nginx
+location /_next/static/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+}
+
+location = /index.html {
+    add_header Cache-Control "no-store, no-cache, must-revalidate";
+}
+
+location / {
+    try_files $uri $uri.html $uri/ /index.html;
+    add_header Cache-Control "no-store, no-cache, must-revalidate";
+}
+```
+
+Kalau ingin lebih presisi, kamu bisa memberi policy `no-store` hanya pada HTML entry pages seperti `/checkout/`, `/payment/`, `/home/`, `/script/`, `/slides/`, dan `/history/`.
+
+### OAuth production checklist
+
+Google OAuth client untuk production perlu memuat origin dan redirect URI berikut:
+
+- `https://orviko.net`
+- `https://www.orviko.net`
+- `https://orviko.net/auth/google/callback`
+- `https://www.orviko.net/auth/google/callback`
+
+Checklist environment production yang relevan:
+
+- root `.env` untuk backend
+- `web/.env.production.local` untuk env frontend build-time bila memang dibutuhkan
+
+Contoh minimal backend prod:
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://orviko.net/auth/google/callback
+FRONTEND_BASE_URL=https://orviko.net
+```
+
+Contoh frontend prod bila tetap perlu override beda origin:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://orviko.net
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=...
+```
+
+Kalau frontend dan backend berada pada domain yang sama seperti setup ORVIKO sekarang, frontend login CTA seharusnya tetap bekerja bahkan tanpa `NEXT_PUBLIC_API_BASE_URL`.
 
 ## Status Flow Bisnis Saat Ini
 

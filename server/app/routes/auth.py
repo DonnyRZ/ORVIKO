@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
 from app.core.config import get_settings
-from app.core.db import db_connection, upsert_google_user
+from app.db.connection import db_connection
+from app.db.repositories.users import upsert_google_user
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

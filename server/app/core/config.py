@@ -32,12 +32,22 @@ class Settings(BaseSettings):
   google_client_id: str = Field("", env="GOOGLE_CLIENT_ID")
   google_client_secret: str = Field("", env="GOOGLE_CLIENT_SECRET")
   google_redirect_uri: str = Field("", env="GOOGLE_REDIRECT_URI")
+  midtrans_env: str = Field("sandbox", env="MIDTRANS_ENV")
+  midtrans_is_production: bool = Field(False, env="MIDTRANS_IS_PRODUCTION")
+  midtrans_server_key: str = Field("", env="MIDTRANS_SERVER_KEY")
+  midtrans_client_key: str = Field("", env="MIDTRANS_CLIENT_KEY")
   frontend_base_url: str = Field("http://localhost:3000", env="FRONTEND_BASE_URL")
   cors_allowed_origins: str = Field(
     "http://localhost:3000,http://127.0.0.1:3000",
     env="CORS_ALLOWED_ORIGINS",
   )
   allow_unauthenticated_generate: bool = Field(True, env="ALLOW_UNAUTHENTICATED_GENERATE")
+
+  @property
+  def midtrans_snap_base_url(self) -> str:
+    if self.midtrans_is_production or self.midtrans_env.lower() == "production":
+      return "https://app.midtrans.com"
+    return "https://app.sandbox.midtrans.com"
 
 
 @lru_cache(maxsize=1)
